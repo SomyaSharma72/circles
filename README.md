@@ -1,67 +1,30 @@
-                                                 CIRCL
+# Neighborly — Full-Stack Community Application
 
+A modern community platform for requesting help from neighbors, offering skills, and building local trust.
 
-Login / Sign Up
-      │
-      ▼
-Complete Profile (First Time Only)
-      │
-      ▼
-────────────────────────────────────────────
-              HOME DASHBOARD
-────────────────────────────────────────────
-      │
- ┌────┼────────────┬────────────┬─────────────┐
- ▼    ▼            ▼            ▼             ▼
-Browse Request   Offer Skill   My Requests   Profile
-Help
- │        │            │              │
- │        │            │              ├── Pending
- │        │            │              ├── Accepted
- │        │            │              └── Completed
- │        │            │
- │        │            └── Edit/Delete Offer
- │        │
- │        └── Create Request
- │
- ▼
-Request Details
- │
- ├──────────────┐
- ▼              ▼
-Accept       Save
-Helper       Request
- │
- ▼
-Chat
- │
- ▼
-Mark Completed
- │
- ▼
-Rate & Review
- │
- ▼
-Trust Score Updated
+## Project Structure
 
-────────────────────────────────────────────
+```
+neighborly/
+├── frontend/          # React + Vite + Tailwind CSS
+├── backend/           # Node.js + Express REST API
+└── README.md
+```
 
-Profile
- │
- ├── Edit Profile
- ├── My Skills
- ├── Reviews
- ├── Trust Score
- ├── Completed Favors
- └── Logout
+## Running the Application
 
-────────────────────────────────────────────
-────────────────────────────────────────────
+### Frontend
 
-Settings
- │
- ├── Edit Account
- ├── Dark Mode
- ├── Privacy
- ├── Help & Support
- └── Logout
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Backend
+
+```bash
+cd backend
+npm install
+npm run dev
+```
