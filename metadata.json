@@ -1,0 +1,8 @@
+{
+  "name": "Neighborly",
+  "description": "A modern community platform for requesting help from neighbors and offering local skills.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
