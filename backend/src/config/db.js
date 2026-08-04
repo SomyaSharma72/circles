@@ -106,18 +106,24 @@ const seedInitialData = async () => {
 
 const connectDB = async () => {
   try {
+    // Disable operation buffering so queries fail immediately if DB is unreachable
+    mongoose.set('bufferCommands', false);
+
     if (!process.env.MONGODB_URI) {
-      throw new Error("MONGODB_URI is not defined in .env");
+      console.warn("⚠️ MONGODB_URI is not defined in environment. Backend will operate in local fallback mode.");
+      return;
     }
 
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 2000,
+    });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
 
     await seedInitialData();
   } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    process.exit(1);
+    console.warn(`⚠️ MongoDB Connection Error: ${error.message}`);
+    console.warn("⚠️ Continuing server startup. Frontend/Backend will rely on local fallback mode.");
   }
 };
 

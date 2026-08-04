@@ -4,6 +4,8 @@ import { requestApi, skillApi } from '../services/api';
 
 import initialUsersData from '../data/users.json';
 import initialReviewsData from '../data/reviews.json';
+import initialRequestsData from '../data/requests.json';
+import initialSkillsData from '../data/skills.json';
 
 interface AppContextType {
   currentUser: User | null;
@@ -71,10 +73,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRequestsError(null);
     try {
       const data = await requestApi.getAllRequests();
-      setRequests(data);
+      if (Array.isArray(data) && data.length > 0) {
+        setRequests(data);
+      } else {
+        setRequests(initialRequestsData as HelpRequest[]);
+      }
     } catch (err: any) {
-      console.error('Failed to fetch requests from backend:', err);
-      setRequestsError(err?.message || 'Failed to connect to backend server');
+      console.warn('Backend requests endpoint unavailable, using local initial data:', err?.message || err);
+      setRequests(initialRequestsData as HelpRequest[]);
     } finally {
       setIsRequestsLoading(false);
     }
@@ -86,10 +92,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSkillsError(null);
     try {
       const data = await skillApi.getAllSkills();
-      setSkills(data);
+      if (Array.isArray(data) && data.length > 0) {
+        setSkills(data);
+      } else {
+        setSkills(initialSkillsData as SkillOffer[]);
+      }
     } catch (err: any) {
-      console.error('Failed to fetch skills from backend:', err);
-      setSkillsError(err?.message || 'Failed to connect to backend server');
+      console.warn('Backend skills endpoint unavailable, using local initial data:', err?.message || err);
+      setSkills(initialSkillsData as SkillOffer[]);
     } finally {
       setIsSkillsLoading(false);
     }

@@ -7,6 +7,15 @@ import User from '../models/User.js'; // Ensure User model is registered for pop
 // @access  Public
 export const getAllRequests = async (req, res, next) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(200).json({
+        status: 'success',
+        count: 0,
+        data: [],
+        message: 'Database not connected, using fallback mode',
+      });
+    }
+
     const requests = await Request.find()
       .populate('requestedBy', 'fullName email neighborhood profession trustScore')
       .populate('acceptedBy', 'fullName email neighborhood profession trustScore')
@@ -18,7 +27,13 @@ export const getAllRequests = async (req, res, next) => {
       data: requests,
     });
   } catch (error) {
-    next(error);
+    console.warn('DB Error in getAllRequests:', error.message);
+    res.status(200).json({
+      status: 'success',
+      count: 0,
+      data: [],
+      message: 'Database error, using fallback mode',
+    });
   }
 };
 

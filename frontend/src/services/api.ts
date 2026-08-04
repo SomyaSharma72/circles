@@ -2,7 +2,18 @@ import axios from 'axios';
 import { HelpRequest, SkillOffer } from '../types';
 
 // API base URL configuration
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '';
+const getApiBaseUrl = (): string => {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    // In remote preview environments (e.g. Cloud Run iframe), relative path should be used to hit the Express server
+    if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
+      return '';
+    }
+  }
+  return envUrl || '';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
