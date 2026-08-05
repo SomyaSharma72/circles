@@ -28,6 +28,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { User, Review } from '../types';
+import { getReputationTier } from '../utils/reputation';
 
 export const RequestDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +38,11 @@ export const RequestDetailPage: React.FC = () => {
     allUsers,
     reviews,
     currentUser,
-    acceptRequest
+    acceptRequest,
+    completeRequest,
+    isRequestsLoading,
+    requestsError,
+    fetchRequests
   } = useApp();
 
   const [copiedLink, setCopiedLink] = useState(false);
@@ -45,7 +50,34 @@ export const RequestDetailPage: React.FC = () => {
   const [offeredSuccess, setOfferedSuccess] = useState(false);
 
   // Find target request
-  const request = requests.find((r) => r.id === id) || requests[0];
+  const request = requests.find((r) => r.id === id);
+
+  // Loading state
+  if (isRequestsLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Loading favor request details...</p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (requestsError) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Failed to Load Request</h2>
+        <p className="text-xs text-rose-600 dark:text-rose-400">{requestsError}</p>
+        <button
+          onClick={() => fetchRequests()}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-xs hover:bg-indigo-700 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   // If request doesn't exist
   if (!request) {
@@ -259,38 +291,47 @@ export const RequestDetailPage: React.FC = () => {
         </h1>
 
         {/* Requester Profile & Meta Row */}
-        <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60">
-          <div className="flex items-center gap-3">
-            <img
-              src={request.requesterAvatar}
-              alt={request.requesterName}
-              className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-500/20"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-slate-900 dark:text-white">
-                  {request.requesterName}
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  • {request.neighborhood}
-                </span>
+        {(() => {
+          const reqTier = getReputationTier(requesterUser.trustScore);
+          const reqAvg = (requesterUser.averageRating !== undefined ? requesterUser.averageRating : 5.0).toFixed(1);
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60">
+              <div className="flex items-center gap-3">
+                <img
+                  src={request.requesterAvatar}
+                  alt={request.requesterName}
+                  className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-500/20 shrink-0"
+                />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      {request.requesterName}
+                    </span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                      {reqTier.badge}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                    <span className="font-semibold text-amber-600 dark:text-amber-400">
+                      ⭐ {reqAvg} Rating
+                    </span>
+                    <span>•</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {requesterUser.completedFavors || 0} Favors Done
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      Posted {request.createdAt}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                  {request.distance}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  Posted {request.createdAt}
-                </span>
-              </div>
-            </div>
-          </div>
 
-          <TrustScoreBadge score={request.requesterTrustScore} size="md" />
-        </div>
+              <TrustScoreBadge score={requesterUser.trustScore} size="md" />
+            </div>
+          );
+        })()}
 
         {/* Required Date & Time & Reward Info Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -359,14 +400,25 @@ export const RequestDetailPage: React.FC = () => {
               <span>Contact Neighbor</span>
             </button>
 
-            {/* Offer Help Button */}
-            {!isAccepted && !isOwner && (
+            {/* Accept Request Button */}
+            {!isAccepted && !isOwner && request.status === 'pending' && (
               <button
                 onClick={handleOfferHelp}
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/25 active:scale-[0.98]"
               >
                 <HeartHandshake className="w-4 h-4" />
-                <span>Offer Help</span>
+                <span>Accept Request</span>
+              </button>
+            )}
+
+            {/* Mark as Completed Button (Requester Only) */}
+            {isOwner && request.status === 'accepted' && (
+              <button
+                onClick={() => completeRequest(request.id)}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-[0.98]"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Mark as Completed</span>
               </button>
             )}
 
@@ -374,9 +426,9 @@ export const RequestDetailPage: React.FC = () => {
             {isAccepted && (
               <Link
                 to={`/chat/${request.id}`}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all shadow-sm"
               >
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className="w-4 h-4 text-emerald-400" />
                 <span>Open Chat & Coordinate</span>
               </Link>
             )}

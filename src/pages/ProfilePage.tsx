@@ -8,6 +8,7 @@ import { ReviewCard } from '../components/ReviewCard';
 import { Modal } from '../components/Modal';
 import { Input } from '../components/Input';
 import { Review } from '../types';
+import { getReputationTier } from '../utils/reputation';
 
 import initialSkillsData from '../data/skills.json';
 import initialReviewsData from '../data/reviews.json';
@@ -34,7 +35,17 @@ import {
 } from 'lucide-react';
 
 export const ProfilePage: React.FC = () => {
-  const { currentUser, reviews, updateProfile, isDarkMode, toggleDarkMode } = useApp();
+  const {
+    currentUser,
+    skills,
+    isSkillsLoading,
+    skillsError,
+    fetchSkills,
+    reviews,
+    updateProfile,
+    isDarkMode,
+    toggleDarkMode,
+  } = useApp();
 
   // Active user data with fallback
   const user = currentUser || {
@@ -61,12 +72,20 @@ export const ProfilePage: React.FC = () => {
 
   // Edit Profile Form state
   const [editName, setEditName] = useState(user.name);
-  const [editProfession, setEditProfession] = useState(
-    'High School Math Teacher & Community Volunteer'
-  );
+  const [editProfession, setEditProfession] = useState(user.profession || 'Neighbor & Volunteer');
   const [editNeighborhood, setEditNeighborhood] = useState(user.neighborhood);
   const [editBio, setEditBio] = useState(user.bio);
   const [editPhone, setEditPhone] = useState(user.phone || '(555) 234-5678');
+
+  React.useEffect(() => {
+    if (currentUser) {
+      setEditName(currentUser.name || '');
+      setEditProfession(currentUser.profession || 'Neighbor & Volunteer');
+      setEditNeighborhood(currentUser.neighborhood || '');
+      setEditBio(currentUser.bio || '');
+      setEditPhone(currentUser.phone || '(555) 234-5678');
+    }
+  }, [currentUser]);
 
   // Settings State
   const [preferredContact, setPreferredContact] = useState<'chat' | 'phone' | 'email'>(
@@ -82,28 +101,26 @@ export const ProfilePage: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Combine user skills with skills from JSON data
+  // Combine user skills with skills from backend API
   const userSkillsList = React.useMemo(() => {
     const rawSkills = [...(user.skills || [])];
-    // Add default example skills if needed
-    const defaultExamples = ['Plumbing', 'Math Tutor', 'Dog Walking', 'Laptop Repair'];
-    defaultExamples.forEach((sk) => {
-      if (!rawSkills.includes(sk)) {
-        rawSkills.push(sk);
-      }
-    });
 
-    // Also pull skill names from skills.json matching this user
-    initialSkillsData.forEach((item) => {
-      if (item.userId === user.id && item.skills) {
-        item.skills.forEach((s) => {
-          if (!rawSkills.includes(s)) rawSkills.push(s);
-        });
+    // Pull skill names from backend skills matching this user
+    skills.forEach((item) => {
+      if (item.userId === user.id || item.userName === user.name) {
+        if (item.title && !rawSkills.includes(item.title)) {
+          rawSkills.push(item.title);
+        }
+        if (item.skills && Array.isArray(item.skills)) {
+          item.skills.forEach((s) => {
+            if (!rawSkills.includes(s)) rawSkills.push(s);
+          });
+        }
       }
     });
 
     return rawSkills;
-  }, [user]);
+  }, [user, skills]);
 
   // Combine reviews for user
   const userReviews = React.useMemo<Review[]>(() => {
@@ -162,10 +179,11 @@ export const ProfilePage: React.FC = () => {
     },
   ];
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
+    await updateProfile({
       name: editName.trim(),
+      profession: editProfession.trim(),
       neighborhood: editNeighborhood.trim(),
       bio: editBio.trim(),
       phone: editPhone.trim(),
@@ -212,9 +230,13 @@ export const ProfilePage: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 text-center sm:text-left relative z-10">
           <div className="flex flex-col sm:flex-row items-center gap-5">
-            {/* Default Avatar / Icon */}
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 flex items-center justify-center border-4 border-white dark:border-slate-900 shadow-md shrink-0">
-              <UserIcon className="w-10 h-10 sm:w-12 sm:h-12" />
+            {/* Avatar / Icon */}
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 flex items-center justify-center border-4 border-white dark:border-slate-900 shadow-md shrink-0">
+              {user.avatar ? (
+                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon className="w-10 h-10 sm:w-12 sm:h-12" />
+              )}
             </div>
 
             {/* Profile Info */}
@@ -230,7 +252,7 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300">
-                {editProfession}
+                {user.profession || editProfession || 'Community Neighbor'}
               </p>
 
               <div className="flex items-center justify-center sm:justify-start gap-4 text-xs text-slate-500 dark:text-slate-400 pt-1 flex-wrap">
@@ -280,77 +302,101 @@ export const ProfilePage: React.FC = () => {
       </motion.div>
 
       {/* 2. Trust Score Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="bg-gradient-to-r from-emerald-900 via-slate-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden border border-emerald-800/40"
-      >
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-          <div className="space-y-3 text-center md:text-left max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Trusted Neighbor</span>
+      {(() => {
+        const tier = getReputationTier(user.trustScore);
+        const avgRatingStr = (user.averageRating !== undefined ? user.averageRating : 5.0).toFixed(1);
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="bg-gradient-to-r from-emerald-900 via-slate-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden border border-emerald-800/40"
+          >
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="space-y-3 text-center md:text-left max-w-xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Reputation Status</span>
+                </div>
+
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center justify-center md:justify-start gap-2">
+                  <span>Community Trust Score</span>
+                  <span className="text-lg font-extrabold text-amber-300">({tier.badge})</span>
+                </h2>
+
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Automatically recalculated based on completed favors and community ratings.
+                </p>
+
+                <div className="flex items-center justify-center md:justify-start gap-2 pt-1 flex-wrap">
+                  <div className={`px-3 py-1 rounded-full text-xs font-bold border ${tier.colorClass}`}>
+                    {tier.badge}
+                  </div>
+                  <div className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    ⭐ {avgRatingStr} Rating
+                  </div>
+                </div>
+              </div>
+
+              {/* Prominent Trust Score Badge Display */}
+              <div className="bg-white/10 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center space-y-2 min-w-[200px] shrink-0">
+                <div className="text-4xl sm:text-5xl font-black text-emerald-400 tracking-tight">
+                  {user.trustScore}
+                  <span className="text-lg text-slate-400 font-normal"> / 100</span>
+                </div>
+
+                <div className="flex justify-center">
+                  <TrustScoreBadge score={user.trustScore} size="md" />
+                </div>
+
+                <p className="text-xs font-bold text-amber-300">
+                  {tier.badge}
+                </p>
+              </div>
             </div>
-
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-              Community Trust Score
-            </h2>
-
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              "Built through completed favors and positive reviews."
-            </p>
-
-            <div className="flex items-center justify-center md:justify-start gap-2 pt-1">
-              <Badge variant="emerald" className="bg-emerald-500/20 border-emerald-500/30 text-emerald-300">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 mr-1" />
-                Trusted Neighbor
-              </Badge>
-              <Badge variant="amber" className="bg-amber-500/20 border-amber-500/30 text-amber-300">
-                Top Contributor
-              </Badge>
-            </div>
-          </div>
-
-          {/* Prominent Trust Score Badge Display */}
-          <div className="bg-white/10 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center space-y-2 min-w-[200px] shrink-0">
-            <div className="text-4xl sm:text-5xl font-black text-emerald-400 tracking-tight">
-              {user.trustScore}
-              <span className="text-lg text-slate-400 font-normal"> / 100</span>
-            </div>
-
-            <div className="flex justify-center">
-              <TrustScoreBadge score={user.trustScore} size="md" />
-            </div>
-
-            <p className="text-[11px] text-slate-300 font-medium">
-              Trusted Neighbor
-            </p>
-          </div>
-        </div>
-      </motion.div>
+          </motion.div>
+        );
+      })()}
 
       {/* 3. Community Contributions Section */}
       <div className="space-y-3">
         <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-          Community Contributions
+          Reputation & Contributions
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Skills Offered Card */}
+          {/* Average Rating Card */}
           <motion.div
             whileHover={{ y: -2 }}
             className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Skills Offered
+                Average Rating
               </p>
-              <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
-                {userSkillsList.length}
+              <h3 className="text-2xl font-extrabold text-amber-500 dark:text-amber-400 mt-1 flex items-center gap-1">
+                ⭐ {(user.averageRating !== undefined ? user.averageRating : 5.0).toFixed(1)}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-              <Wrench className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
+            </div>
+          </motion.div>
+
+          {/* Trust Score Card */}
+          <motion.div
+            whileHover={{ y: -2 }}
+            className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between"
+          >
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Trust Score
+              </p>
+              <h3 className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
+                {user.trustScore}%
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5" />
             </div>
           </motion.div>
 
@@ -361,46 +407,28 @@ export const ProfilePage: React.FC = () => {
           >
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Favors Completed
+                Completed Favors
               </p>
-              <h3 className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                {user.completedFavors || 24}
+              <h3 className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">
+                {user.completedFavors || 0}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
               <HeartHandshake className="w-5 h-5" />
             </div>
           </motion.div>
 
-          {/* Reviews Received Card */}
+          {/* Total Reviews Card */}
           <motion.div
             whileHover={{ y: -2 }}
             className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Reviews Received
-              </p>
-              <h3 className="text-2xl font-extrabold text-amber-500 dark:text-amber-400 mt-1">
-                {user.reviewsCount || 18}
-              </h3>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
-            </div>
-          </motion.div>
-
-          {/* Community Rating Card */}
-          <motion.div
-            whileHover={{ y: -2 }}
-            className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between"
-          >
-            <div>
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Community Rating
+                Total Reviews
               </p>
               <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
-                4.9 <span className="text-xs font-normal text-slate-400">/ 5.0</span>
+                {user.reviewsCount || 0}
               </h3>
             </div>
             <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -434,18 +462,35 @@ export const ProfilePage: React.FC = () => {
         </p>
 
         {/* Skills Chips */}
-        <div className="flex flex-wrap gap-2.5 pt-2">
-          {userSkillsList.map((skill) => (
-            <motion.div
-              key={skill}
-              whileHover={{ scale: 1.03 }}
-              className="px-4 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-2 shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>{skill}</span>
-            </motion.div>
-          ))}
-        </div>
+        {isSkillsLoading ? (
+          <div className="flex gap-2 pt-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="w-24 h-8 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        ) : skillsError ? (
+          <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-center space-y-2">
+            <p className="text-xs text-rose-600 dark:text-rose-400">{skillsError}</p>
+            <Button variant="outline" size="sm" onClick={() => fetchSkills()}>
+              Retry
+            </Button>
+          </div>
+        ) : userSkillsList.length > 0 ? (
+          <div className="flex flex-wrap gap-2.5 pt-2">
+            {userSkillsList.map((skill) => (
+              <motion.div
+                key={skill}
+                whileHover={{ scale: 1.03 }}
+                className="px-4 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-2 shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>{skill}</span>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400 italic pt-1">No skills listed yet.</p>
+        )}
       </motion.div>
 
       {/* Grid container for Reviews & Recent Activity */}

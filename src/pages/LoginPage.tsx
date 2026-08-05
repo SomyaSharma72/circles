@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { Input } from '../components/Input';
@@ -8,13 +8,18 @@ import { HeartHandshake, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-reac
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { allUsers, loginAsUser } = useApp();
+  const { currentUser, allUsers, loginAsUser, loginWithCredentials } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  if (currentUser) {
+    return <Navigate to={currentUser.profileCompleted ? '/home' : '/complete-profile'} replace />;
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -23,22 +28,34 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    // Try finding user by email or default to first user
-    const foundUser = allUsers.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-    if (foundUser) {
-      loginAsUser(foundUser.id);
-    } else {
-      // Demo log in as Sarah
-      loginAsUser(allUsers[0]?.id || 'u1');
+    setIsSubmitting(true);
+    try {
+      const user = await loginWithCredentials(email.trim(), password.trim());
+      if (!user.profileCompleted) {
+        navigate('/complete-profile');
+      } else {
+        navigate('/home');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    navigate('/home');
   };
 
   const handleDemoLogin = () => {
-    const demoUser = allUsers[0] || { id: 'u1' };
-    loginAsUser(demoUser.id);
-    navigate('/home');
+    if (allUsers && allUsers.length > 0) {
+      const demoUser = allUsers[0];
+      loginAsUser(demoUser.id);
+      if (demoUser && demoUser.profileCompleted === false) {
+        navigate('/complete-profile');
+      } else {
+        navigate('/home');
+      }
+    } else {
+      // If no registered users exist in DB, send to signup
+      navigate('/signup');
+    }
   };
 
   return (

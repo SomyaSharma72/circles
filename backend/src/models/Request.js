@@ -17,9 +17,18 @@ const requestSchema = new mongoose.Schema(
       required: [true, 'Category is required'],
       trim: true,
     },
+    urgency: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'urgent'],
+      default: 'medium',
+    },
+    pointsOrOffer: {
+      type: String,
+      default: 'Neighborly Gratitude',
+    },
     status: {
       type: String,
-      enum: ['Pending', 'Accepted', 'Completed'],
+      enum: ['Pending', 'Accepted', 'Completed', 'Cancelled'],
       default: 'Pending',
     },
     requestedBy: {

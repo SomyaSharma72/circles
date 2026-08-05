@@ -52,7 +52,11 @@ export const MyRequestsPage: React.FC = () => {
     reviews,
     cancelRequest,
     updateRequest,
+    completeRequest,
     addReview,
+    isRequestsLoading,
+    requestsError,
+    fetchRequests,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<TabType>('pending');
@@ -310,7 +314,21 @@ export const MyRequestsPage: React.FC = () => {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {tabFavors.length > 0 ? (
+          {isRequestsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-48 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          ) : requestsError ? (
+            <div className="p-6 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-center space-y-3 max-w-md mx-auto">
+              <p className="text-sm font-bold text-rose-800 dark:text-rose-200">Failed to load favors</p>
+              <p className="text-xs text-rose-600 dark:text-rose-300">{requestsError}</p>
+              <Button variant="outline" size="sm" onClick={() => fetchRequests()}>
+                Retry
+              </Button>
+            </div>
+          ) : tabFavors.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {tabFavors.map((req) => {
                 const existingReview = getExistingReview(req.id);
@@ -446,6 +464,17 @@ export const MyRequestsPage: React.FC = () => {
                             <MessageSquare className="w-3.5 h-3.5" />
                             Open Chat
                           </Button>
+
+                          {req.requesterId === currentUser?.id && (
+                            <button
+                              onClick={() => completeRequest(req.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Mark as Completed</span>
+                            </button>
+                          )}
+
                           <Button
                             variant="outline"
                             size="sm"

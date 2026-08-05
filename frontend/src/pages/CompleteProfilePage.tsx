@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import apiClient from '../services/api';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
@@ -37,6 +38,7 @@ export const CompleteProfilePage: React.FC = () => {
   const [neighborhood, setNeighborhood] = useState(currentUser?.neighborhood || 'Maplewood Terrace');
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [selectedSkills, setSelectedSkills] = useState<string[]>(currentUser?.skills || ['Gardening & Plant Care']);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -53,17 +55,52 @@ export const CompleteProfilePage: React.FC = () => {
     );
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submit handler entered - CompleteProfilePage');
+    setErrorMsg(null);
 
-    updateProfile({
-      name: fullName.trim() || 'Friendly Neighbor',
-      neighborhood: neighborhood,
+    // Basic validation
+    if (!fullName || fullName.trim().length === 0) {
+      console.log('Validation failed: fullName empty');
+      setErrorMsg('Please provide your full name before continuing.');
+      return;
+    }
+
+    console.log('Validation passed');
+
+    if (!currentUser || !currentUser.id) {
+      console.log('No authenticated user found - aborting save');
+      setErrorMsg('No authenticated user. Please log in again.');
+      return;
+    }
+
+    const payload = {
+      fullName: fullName.trim() || 'Friendly Neighbor',
+      profession: profession || undefined,
+      neighborhood,
       bio: bio.trim() || `Local neighbor in ${neighborhood}. Happy to help around!`,
       skills: selectedSkills,
-    });
+      profileCompleted: true,
+    };
 
-    navigate('/home');
+    try {
+      console.log('Calling updateProfile (context) with payload', payload);
+      await updateProfile({
+        name: payload.fullName,
+        profession: payload.profession,
+        neighborhood: payload.neighborhood,
+        bio: payload.bio,
+        skills: payload.skills,
+        profileCompleted: true,
+      });
+      console.log('updateProfile resolved successfully');
+      console.log('Navigating to /home');
+      navigate('/home');
+    } catch (err: any) {
+      console.error('Failed to save profile (updateProfile):', err);
+      setErrorMsg(err?.response?.data?.message || err?.message || 'Failed to save profile.');
+    }
   };
 
   return (
@@ -188,7 +225,11 @@ export const CompleteProfilePage: React.FC = () => {
             />
           </div>
 
-          <Button type="submit" variant="primary" size="lg" className="w-full">
+          {errorMsg && (
+            <div className="text-sm text-rose-500 font-medium mb-2">{errorMsg}</div>
+          )}
+
+          <Button type="submit" variant="primary" size="lg" className="w-full" onClick={() => console.log('Button clicked - Save Profile')}>
             <span>Save Profile & Continue to Dashboard</span>
             <ArrowRight className="w-4 h-4 ml-1" />
           </Button>

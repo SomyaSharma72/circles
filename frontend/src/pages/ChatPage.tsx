@@ -29,14 +29,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-// Map of user professions / titles for realistic display
-const USER_PROFESSIONS: Record<string, string> = {
-  u1: 'High School Math Teacher',
-  u2: 'Software Engineer & Woodworker',
-  u3: 'Retired Nurse & Plant Specialist',
-  u4: 'Handyman & DIY Enthusiast',
-};
-
 export const ChatPage: React.FC = () => {
   const { requestId } = useParams<{ requestId?: string }>();
   const navigate = useNavigate();
@@ -75,32 +67,24 @@ export const ChatPage: React.FC = () => {
   const conversations = useMemo(() => {
     if (!currentUser) return [];
 
-    // Requests where current user is requester or helper, or accepted/completed requests
     const relevantRequests = requests.filter((r) => {
-      const isParticipant =
-        r.requesterId === currentUser.id || r.helperId === currentUser.id;
-      const isAcceptedOrCompleted = r.status === 'accepted' || r.status === 'completed';
-      return isParticipant || isAcceptedOrCompleted;
+      return r.requesterId === currentUser.id || r.helperId === currentUser.id;
     });
 
-    // Fallback: if no active requests, show all accepted requests as demo
-    const displayRequests =
-      relevantRequests.length > 0
-        ? relevantRequests
-        : requests.filter((r) => r.status === 'accepted' || r.status === 'completed');
-
-    return displayRequests.map((req) => {
+    return relevantRequests.map((req) => {
       const isHelper = req.helperId === currentUser.id;
-      const partnerId = isHelper ? req.requesterId : req.helperId || 'u2';
-      const partnerUser = allUsers.find((u) => u.id === partnerId) || {
-        id: partnerId,
-        name: isHelper ? req.requesterName : req.helperName || 'Marcus Chen',
-        avatar:
-          (isHelper ? req.requesterAvatar : req.helperAvatar) ||
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        trustScore: isHelper ? req.requesterTrustScore : 96,
-        neighborhood: req.neighborhood,
-      };
+      const partnerId = isHelper ? req.requesterId : req.helperId || '';
+      const partnerUser =
+        allUsers.find((u) => u.id === partnerId) ||
+        {
+          id: partnerId,
+          name: isHelper ? req.requesterName : req.helperName || 'Neighbor',
+          avatar:
+            (isHelper ? req.requesterAvatar : req.helperAvatar) ||
+            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+          trustScore: isHelper ? req.requesterTrustScore : 0,
+          neighborhood: req.neighborhood,
+        };
 
       const msgs = getChatMessages(req.id);
       const lastMsgObj = msgs.length > 0 ? msgs[msgs.length - 1] : null;
@@ -111,12 +95,10 @@ export const ChatPage: React.FC = () => {
         category: req.category,
         status: req.status,
         partner: partnerUser,
-        profession: USER_PROFESSIONS[partnerUser.id] || 'Neighbor Volunteer',
-        lastMessage: lastMsgObj
-          ? lastMsgObj.text
-          : 'Conversation started. Say hello!',
+        profession: partnerUser.profession || 'Neighbor Volunteer',
+        lastMessage: lastMsgObj ? lastMsgObj.text : 'Conversation started. Say hello!',
         time: lastMsgObj ? lastMsgObj.timestamp : req.createdAt,
-        unread: req.id === 'req-102' ? 1 : 0,
+        unread: 0,
         isOnline: true,
         requestData: req,
       };
@@ -151,32 +133,6 @@ export const ChatPage: React.FC = () => {
   const currentMessages = useMemo(() => {
     if (!selectedRequestId) return [];
     const msgs = getChatMessages(selectedRequestId);
-
-    // If no custom messages exist yet for req-102, return mock messages
-    if (msgs.length === 0 && selectedRequestId === 'req-102') {
-      return [
-        {
-          id: 'msg-1',
-          requestId: 'req-102',
-          senderId: 'u2',
-          senderName: 'Marcus Chen',
-          senderAvatar:
-            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-          text: 'Hi Elena! Thanks so much for accepting to water my plants. The front door keypad code is 4829.',
-          timestamp: 'Yesterday 4:15 PM',
-        },
-        {
-          id: 'msg-2',
-          requestId: 'req-102',
-          senderId: 'u3',
-          senderName: 'Elena Rostova',
-          senderAvatar:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          text: 'Got it, Marcus! I will swing by Saturday around 10 AM. Have a safe trip!',
-          timestamp: 'Yesterday 4:20 PM',
-        },
-      ];
-    }
 
     return msgs;
   }, [selectedRequestId, getChatMessages]);

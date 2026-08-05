@@ -11,6 +11,7 @@ import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { Input } from '../components/Input';
 import { HelpRequest, User, RequestCategory } from '../types';
+import { getRecommendedRequests } from '../utils/recommendations';
 
 import {
   HeartHandshake,
@@ -51,10 +52,31 @@ const USER_PROFESSIONS: Record<string, string> = {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, requests, allUsers, addRequest } = useApp();
+  const { currentUser, requests, allUsers, skills, reviews, addRequest, isRequestsLoading, requestsError, fetchRequests } = useApp();
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Real-time Community Metrics calculated from DB/Context state
+  const totalCompletedFavors = useMemo(() => {
+    return requests.filter((r) => r.status === 'completed').length;
+  }, [requests]);
+
+  const totalActiveNeighbors = useMemo(() => {
+    return allUsers.length;
+  }, [allUsers]);
+
+  const totalSkillsShared = useMemo(() => {
+    return skills ? skills.length : 0;
+  }, [skills]);
+
+  const averageCommunityRating = useMemo(() => {
+    if (!reviews || reviews.length === 0) {
+      return currentUser?.averageRating ? currentUser.averageRating.toFixed(1) : '5.0';
+    }
+    const sum = reviews.reduce((acc, r) => acc + (r.rating || 5), 0);
+    return (sum / reviews.length).toFixed(1);
+  }, [reviews, currentUser]);
 
   // Request Modal state
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -76,7 +98,12 @@ export const HomePage: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // 1. Nearby Help Requests (Latest 3-4 active requests)
+  // 1. Recommended Requests (AI Smart Recommendation Engine)
+  const recommendedItems = useMemo(() => {
+    return getRecommendedRequests(currentUser, requests, 3);
+  }, [currentUser, requests]);
+
+  // 2. Nearby Help Requests (Latest 3-4 active requests)
   const nearbyRequests = useMemo(() => {
     return requests.slice(0, 4);
   }, [requests]);
@@ -226,6 +253,53 @@ export const HomePage: React.FC = () => {
         </form>
       </motion.div>
 
+      {/* ==================== RECOMMENDED FOR YOU (SMART AI RECOMMENDATIONS) ==================== */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.07 }}
+        className="space-y-4"
+      >
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Recommended For You
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-300/60 dark:border-indigo-800/60 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                Smart Recommendations
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Personalized matches calculated from your skills, profession, and neighborhood
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/browse-help')}
+            className="shrink-0"
+          >
+            <span>Explore All</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
+        {recommendedItems.length === 0 ? (
+          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+            <p className="text-xs text-slate-500">No recommended requests available currently.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {recommendedItems.map(({ request, explanation }) => (
+              <RequestCard key={`rec-${request.id}`} request={request} explanation={explanation} />
+            ))}
+          </div>
+        )}
+      </motion.div>
+
       {/* ==================== 3. QUICK ACTIONS ==================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* 🆘 Request Help Card */}
@@ -328,24 +402,54 @@ export const HomePage: React.FC = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {nearbyRequests.map((req) => (
-            <RequestCard key={req.id} request={req} />
-          ))}
-        </div>
+        {isRequestsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-48 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        ) : requestsError ? (
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 flex items-center justify-between text-xs">
+            <span>Error loading requests: {requestsError}</span>
+            <Button variant="outline" size="sm" onClick={() => fetchRequests()}>
+              Retry
+            </Button>
+          </div>
+        ) : nearbyRequests.length === 0 ? (
+          <div className="p-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-2">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No requests found nearby.</p>
+            <p className="text-xs text-slate-500">Be the first to create a help request in your neighborhood!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {nearbyRequests.map((req) => (
+              <RequestCard key={req.id} request={req} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* ==================== 6. TOP COMMUNITY HELPERS ==================== */}
+      {/* ==================== 6. TOP TRUSTED NEIGHBORS ==================== */}
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Top Community Helpers
+              Top Trusted Neighbors
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Trusted neighbors with the highest reliability scores and completed favors
+              Top 3 community members sorted by dynamic Trust Score and completed favors
             </p>
           </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/leaderboard')}
+            className="shrink-0"
+          >
+            <span>Full Leaderboard</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -13,19 +13,23 @@ import {
   Menu,
   X,
   Compass,
-  MessageSquare
+  MessageSquare,
+  Trophy,
+  LogOut
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { currentUser, isDarkMode, toggleDarkMode } = useApp();
+  const { currentUser, isDarkMode, toggleDarkMode, logout } = useApp();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navLinks = [
     { label: 'Browse Help', path: '/browse-help', icon: Search },
     { label: 'Offer Skills', path: '/offer-skill', icon: Compass },
+    { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
+    { label: 'Active Favor', path: '/active-favor', icon: HeartHandshake },
     { label: 'My Favors', path: '/my-requests', icon: Bookmark },
-    { label: 'Active Favor', path: '/chat', icon: MessageSquare },
+    { label: 'Chat', path: '/chat', icon: MessageSquare },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -101,10 +105,18 @@ export const Navbar: React.FC = () => {
                   </Link>
 
                   <Link to="/settings">
-                    <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800" title="Settings">
                       <Settings className="w-4 h-4" />
                     </button>
                   </Link>
+
+                  <button
+                    onClick={() => logout()}
+                    className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    title="Log Out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
                 </div>
               ) : (
                 <Link to="/login">

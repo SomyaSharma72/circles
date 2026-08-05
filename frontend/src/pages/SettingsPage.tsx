@@ -61,19 +61,22 @@ export const SettingsPage: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
 
   // Handle Edit Profile Submission
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editName.trim()) return;
-
-    updateProfile({
-      name: editName.trim(),
-      neighborhood: editNeighborhood.trim(),
-      phone: editPhone.trim(),
-      bio: editBio.trim(),
-    });
-
-    setIsEditProfileOpen(false);
-    showToast('Profile preferences updated successfully.');
+    try {
+      await updateProfile({
+        name: editName.trim(),
+        neighborhood: editNeighborhood.trim(),
+        phone: editPhone.trim(),
+        bio: editBio.trim(),
+      });
+      setIsEditProfileOpen(false);
+      showToast('Profile preferences updated successfully.');
+    } catch (err: any) {
+      console.error('Failed to save profile in SettingsPage:', err);
+      showToast(err?.response?.data?.message || err?.message || 'Failed to save profile settings.');
+    }
   };
 
   // Handle Password Change Submission
@@ -441,7 +444,7 @@ export const SettingsPage: React.FC = () => {
               Session & Sign Out
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Logged in as <span className="font-semibold text-slate-700 dark:text-slate-300">{currentUser?.email || 'Demo User'}</span>
+              Logged in as <span className="font-semibold text-slate-700 dark:text-slate-300">{currentUser?.email || 'Not signed in'}</span>
             </p>
           </div>
 

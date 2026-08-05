@@ -18,7 +18,6 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, 'Password is required'],
-      minlength: [6, 'Password must be at least 6 characters'],
     },
     profession: {
       type: String,
@@ -35,15 +34,13 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
-    skills: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Skill',
-      },
-    ],
+    skills: {
+      type: [String],
+      default: [],
+    },
     trustScore: {
       type: Number,
-      default: 50,
+      default: 95,
       min: 0,
       max: 100,
     },
@@ -51,6 +48,25 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
+    },
+    averageRating: {
+      type: Number,
+      default: 5.0,
+      min: 0,
+      max: 5,
+    },
+    totalReviews: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
+    avatar: {
+      type: String,
+      default: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     },
   },
   {

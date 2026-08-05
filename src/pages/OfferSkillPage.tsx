@@ -37,7 +37,16 @@ const AVAILABILITY_CHIPS = ['Weekdays', 'Weekends', 'Morning', 'Afternoon', 'Eve
 const SERVICE_RADIUS_OPTIONS = ['Within 1 km', 'Within 3 km', 'Within 5 km', 'Anywhere'];
 
 export const OfferSkillPage: React.FC = () => {
-  const { currentUser, skills, addSkillOffer, updateSkillOffer, deleteSkillOffer } = useApp();
+  const {
+    currentUser,
+    skills,
+    addSkillOffer,
+    updateSkillOffer,
+    deleteSkillOffer,
+    isSkillsLoading,
+    skillsError,
+    fetchSkills,
+  } = useApp();
 
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -463,7 +472,22 @@ export const OfferSkillPage: React.FC = () => {
 
         {/* Display existing skills using SkillCard */}
         <AnimatePresence mode="popLayout">
-          {activeSkills.length > 0 ? (
+          {isSkillsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-44 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          ) : skillsError ? (
+            <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-3xl p-8 text-center space-y-3 max-w-md mx-auto">
+              <AlertCircle className="w-10 h-10 text-rose-500 mx-auto" />
+              <h3 className="font-bold text-rose-900 dark:text-rose-200 text-base">Failed to load skills</h3>
+              <p className="text-xs text-rose-600 dark:text-rose-400">{skillsError}</p>
+              <Button variant="outline" size="sm" onClick={() => fetchSkills()}>
+                Try Again
+              </Button>
+            </div>
+          ) : activeSkills.length > 0 ? (
             <motion.div
               layout
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"

@@ -7,15 +7,6 @@ import User from '../models/User.js'; // Ensure User model is registered for pop
 // @access  Public
 export const getAllRequests = async (req, res, next) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(200).json({
-        status: 'success',
-        count: 0,
-        data: [],
-        message: 'Database not connected, using fallback mode',
-      });
-    }
-
     const requests = await Request.find()
       .populate('requestedBy', 'fullName email neighborhood profession trustScore')
       .populate('acceptedBy', 'fullName email neighborhood profession trustScore')
@@ -27,13 +18,7 @@ export const getAllRequests = async (req, res, next) => {
       data: requests,
     });
   } catch (error) {
-    console.warn('DB Error in getAllRequests:', error.message);
-    res.status(200).json({
-      status: 'success',
-      count: 0,
-      data: [],
-      message: 'Database error, using fallback mode',
-    });
+    next(error);
   }
 };
 
@@ -76,7 +61,7 @@ export const getRequestById = async (req, res, next) => {
 // @access  Public
 export const createRequest = async (req, res, next) => {
   try {
-    const { title, description, category, requiredDate, location, requestedBy } = req.body;
+    const { title, description, category, requiredDate, location, requestedBy, urgency, pointsOrOffer } = req.body;
 
     // Validate required fields
     if (!title || !description || !category || !requestedBy) {
@@ -97,6 +82,8 @@ export const createRequest = async (req, res, next) => {
       title,
       description,
       category,
+      urgency: urgency || 'medium',
+      pointsOrOffer: pointsOrOffer || 'Neighborly Gratitude',
       requiredDate: requiredDate || '',
       location: location || '',
       requestedBy,
@@ -129,7 +116,7 @@ export const updateRequest = async (req, res, next) => {
       });
     }
 
-    const { title, description, category, requiredDate, location, status, acceptedBy } = req.body;
+    const { title, description, category, requiredDate, location, status, acceptedBy, urgency, pointsOrOffer } = req.body;
 
     const request = await Request.findById(id);
 
@@ -145,12 +132,14 @@ export const updateRequest = async (req, res, next) => {
     if (category !== undefined) request.category = category;
     if (requiredDate !== undefined) request.requiredDate = requiredDate;
     if (location !== undefined) request.location = location;
+    if (urgency !== undefined) request.urgency = urgency;
+    if (pointsOrOffer !== undefined) request.pointsOrOffer = pointsOrOffer;
     
     if (status !== undefined) {
-      if (!['Pending', 'Accepted', 'Completed'].includes(status)) {
+      if (!['Pending', 'Accepted', 'Completed', 'Cancelled'].includes(status)) {
         return res.status(400).json({
           status: 'error',
-          message: 'Status must be one of: Pending, Accepted, Completed',
+          message: 'Status must be one of: Pending, Accepted, Completed, Cancelled',
         });
       }
       request.status = status;

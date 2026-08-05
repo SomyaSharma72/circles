@@ -8,13 +8,13 @@ import { HeartHandshake, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-reac
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { allUsers, loginAsUser } = useApp();
+  const { login } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -23,22 +23,16 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    // Try finding user by email or default to first user
-    const foundUser = allUsers.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-    if (foundUser) {
-      loginAsUser(foundUser.id);
-    } else {
-      // Demo log in as Sarah
-      loginAsUser(allUsers[0]?.id || 'u1');
+    try {
+      await login(email.trim().toLowerCase(), password);
+      navigate('/home');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Login failed');
     }
-
-    navigate('/home');
   };
 
   const handleDemoLogin = () => {
-    const demoUser = allUsers[0] || { id: 'u1' };
-    loginAsUser(demoUser.id);
-    navigate('/home');
+    // Demo access removed to avoid seeded demo data
   };
 
   return (
@@ -115,18 +109,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Explore Demo Button */}
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            size="md"
-            className="w-full justify-center text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
-            onClick={handleDemoLogin}
-          >
-            <ShieldCheck className="w-4 h-4 text-indigo-600" />
-            <span>Explore Demo</span>
-          </Button>
-        </div>
+        {/* Demo access removed; create an account to continue */}
 
         {/* Footer link to Sign Up */}
         <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800">

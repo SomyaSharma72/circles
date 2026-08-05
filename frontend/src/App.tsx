@@ -15,6 +15,8 @@ import { MyRequestsPage } from './pages/MyRequestsPage';
 import { ChatPage } from './pages/ChatPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
+import { ActiveFavorPage } from './pages/ActiveFavorPage';
 
 export function App() {
   return (
@@ -40,6 +42,8 @@ export function App() {
           <Route path="/chat/:requestId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
+          <Route path="/active-favor" element={<ProtectedRoute><ActiveFavorPage /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />

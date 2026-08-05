@@ -6,7 +6,9 @@ export interface User {
   neighborhood: string;
   address: string;
   bio: string;
+  profession?: string;
   trustScore: number; // e.g. 98% or 4.9/5
+  averageRating?: number;
   verifiedNeighbor: boolean;
   joinedDate: string;
   skills: string[];

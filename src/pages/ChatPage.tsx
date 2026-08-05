@@ -47,6 +47,8 @@ export const ChatPage: React.FC = () => {
     requests,
     sendMessage,
     getChatMessages,
+    fetchMessagesForRequest,
+    completeRequest,
   } = useApp();
 
   // State
@@ -54,6 +56,8 @@ export const ChatPage: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileView, setMobileView] = useState<'list' | 'chat'>(requestId ? 'chat' : 'list');
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [forbiddenError, setForbiddenError] = useState<string | null>(null);
 
   // Modal States
   const [profileUser, setProfileUser] = useState<User | null>(null);
@@ -180,6 +184,61 @@ export const ChatPage: React.FC = () => {
 
     return msgs;
   }, [selectedRequestId, getChatMessages]);
+
+  // Verify authorization for current user & selected request
+  const isUnauthorized = useMemo(() => {
+    if (!selectedRequestId || !currentUser) return false;
+    const req = requests.find((r) => r.id === selectedRequestId);
+    if (!req) return false;
+
+    const isRequester = req.requesterId === currentUser.id;
+    const isHelper = req.helperId === currentUser.id;
+
+    // Only requester or accepted helper can read/send messages
+    if (req.status === 'accepted' || req.status === 'completed') {
+      return !isRequester && !isHelper;
+    }
+    return false;
+  }, [selectedRequestId, requests, currentUser]);
+
+  // Polling every 2 seconds to refresh messages for selected request
+  useEffect(() => {
+    if (!selectedRequestId || isUnauthorized) {
+      setIsMessagesLoading(false);
+      return;
+    }
+
+    let isSubscribed = true;
+    let isFirst = true;
+
+    const loadMessages = async () => {
+      if (isFirst) setIsMessagesLoading(true);
+      try {
+        await fetchMessagesForRequest(selectedRequestId);
+        if (isSubscribed) setForbiddenError(null);
+      } catch (err: any) {
+        if (isSubscribed && err?.response?.status === 403) {
+          setForbiddenError('403 Forbidden: You are not authorized to access this private conversation.');
+        }
+      } finally {
+        if (isSubscribed && isFirst) {
+          setIsMessagesLoading(false);
+          isFirst = false;
+        }
+      }
+    };
+
+    loadMessages();
+
+    const intervalId = setInterval(() => {
+      loadMessages();
+    }, 2000);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(intervalId);
+    };
+  }, [selectedRequestId, fetchMessagesForRequest, isUnauthorized]);
 
   // Auto-scroll to bottom whenever messages update
   useEffect(() => {
@@ -373,6 +432,21 @@ export const ChatPage: React.FC = () => {
 
                 {/* Header Action Buttons */}
                 <div className="flex items-center gap-2 relative">
+                  {activeConversation.requestData?.status === 'accepted' &&
+                    currentUser?.id === activeConversation.requestData?.requesterId && (
+                      <button
+                        onClick={() => {
+                          if (activeConversation.requestData) {
+                            completeRequest(activeConversation.requestData.id);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Mark as Completed</span>
+                      </button>
+                    )}
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -448,24 +522,50 @@ export const ChatPage: React.FC = () => {
 
               {/* 2. Messages List */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-1">
-                {/* System Intro Banner */}
-                <div className="text-center py-3 mb-2 space-y-1">
-                  <p className="text-xs text-slate-400">
-                    This is a secure, private chat between neighbors in{' '}
-                    <span className="font-semibold text-slate-600 dark:text-slate-300">
-                      {activeConversation.partner.neighborhood || 'Maplewood Terrace'}
-                    </span>
-                  </p>
-                </div>
+                {isUnauthorized || forbiddenError ? (
+                  <div className="flex flex-col items-center justify-center py-16 px-4 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
+                      403 Forbidden: Access Denied
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+                      {forbiddenError || 'You are not authorized to view this private chat. Only the requester and helper can participate.'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* System Intro Banner */}
+                    <div className="text-center py-3 mb-2 space-y-1">
+                      <p className="text-xs text-slate-400">
+                        This is a secure, private chat between neighbors in{' '}
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">
+                          {activeConversation.partner.neighborhood || 'Maplewood Terrace'}
+                        </span>
+                      </p>
+                    </div>
 
-                {/* Render Messages */}
-                {currentMessages.map((msg) => (
-                  <ChatBubble
-                    key={msg.id}
-                    message={msg}
-                    isOutgoing={msg.senderId === currentUser?.id}
-                  />
-                ))}
+                    {/* Render Messages */}
+                    {currentMessages.length > 0 ? (
+                      currentMessages.map((msg) => (
+                        <ChatBubble
+                          key={msg.id}
+                          message={msg}
+                          isOutgoing={msg.senderId === currentUser?.id}
+                        />
+                      ))
+                    ) : isMessagesLoading ? (
+                      <div className="py-12 text-center text-xs text-slate-400 animate-pulse">
+                        Loading conversation history...
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center text-xs text-slate-400">
+                        No messages yet. Send a note to start coordinating!
+                      </div>
+                    )}
+                  </>
+                )}
 
                 <div ref={messagesEndRef} />
               </div>

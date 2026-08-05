@@ -6,7 +6,10 @@ export interface User {
   neighborhood: string;
   address: string;
   bio: string;
+  profession?: string;
   trustScore: number; // e.g. 98% or 4.9/5
+  averageRating?: number;
+  profileCompleted?: boolean;
   verifiedNeighbor: boolean;
   joinedDate: string;
   skills: string[];
@@ -78,6 +81,9 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   senderAvatar: string;
+  receiverId?: string;
+  receiverName?: string;
+  receiverAvatar?: string;
   text: string;
   timestamp: string;
   isSystemNotice?: boolean;

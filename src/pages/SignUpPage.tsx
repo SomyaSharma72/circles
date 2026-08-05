@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { Input } from '../components/Input';
@@ -8,15 +8,20 @@ import { HeartHandshake, User, Mail, Lock, ArrowRight, ShieldCheck } from 'lucid
 
 export const SignUpPage: React.FC = () => {
   const navigate = useNavigate();
-  const { registerUser } = useApp();
+  const { currentUser, registerWithCredentials } = useApp();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSignUp = (e: React.FormEvent) => {
+  if (currentUser) {
+    return <Navigate to={currentUser.profileCompleted ? '/home' : '/complete-profile'} replace />;
+  }
+
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -37,9 +42,15 @@ export const SignUpPage: React.FC = () => {
       return;
     }
 
-    // Register user in context and move to complete profile setup
-    registerUser(fullName.trim(), email.trim());
-    navigate('/complete-profile');
+    setIsSubmitting(true);
+    try {
+      await registerWithCredentials(fullName.trim(), email.trim(), password.trim());
+      navigate('/complete-profile');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to create account. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
