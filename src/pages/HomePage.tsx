@@ -1,812 +1,602 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useApp } from '../context/AppContext';
-import { RequestCard } from '../components/RequestCard';
-import { ProfileCard } from '../components/ProfileCard';
-import { TrustScoreBadge } from '../components/TrustScoreBadge';
-import { SearchBar } from '../components/SearchBar';
-import { Badge } from '../components/Badge';
-import { Button } from '../components/Button';
-import { Modal } from '../components/Modal';
-import { Input } from '../components/Input';
-import { HelpRequest, User, RequestCategory } from '../types';
-import { getRecommendedRequests } from '../utils/recommendations';
-
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
+import { getFavorRequests, getCommunityMetrics, searchFavorRequests } from '../services/api';
+import { FavorRequest, CommunityMetrics } from '../types';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { ErrorMessage } from '../components/ErrorMessage';
+import { EmptyState } from '../components/EmptyState';
+import { useSocketContext } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import {
-  HeartHandshake,
-  Wrench,
-  Users,
-  Star,
-  Check,
-  Activity,
-  ArrowRight,
-  Sparkles,
+  CharacterDogWalker,
+  CharacterToolShare,
+  CharacterTutoring,
+  CharacterGardener,
+  CircleAvatarStack,
+} from '../components/CharacterIllustrations';
+import {
+  Search,
   MapPin,
-  ShieldCheck,
+  Clock,
   PlusCircle,
-  HelpCircle,
+  Users,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+  Heart,
+  Wrench,
+  Dog,
+  ShoppingBag,
+  Laptop,
+  GraduationCap,
+  MessageSquare,
+  HandHeart,
+  Compass,
+  Star,
+  Quote,
+  Zap,
   CheckCircle2,
-  ChevronRight,
-  Gift,
+  Calendar,
+  Coffee,
+  Sun,
+  Flame,
 } from 'lucide-react';
 
-const CATEGORIES = [
-  'Medical',
-  'Tutoring',
-  'Plumbing',
-  'Electrical',
-  'Pet Care',
-  'Transportation',
-  'Gardening',
-  'Technology',
-  'Household',
-];
-
-const USER_PROFESSIONS: Record<string, string> = {
-  u1: 'High School Math Teacher',
-  u2: 'Software Engineer & Woodworker',
-  u3: 'Retired Nurse & Plant Specialist',
-  u4: 'Handyman & DIY Enthusiast',
-};
-
 export const HomePage: React.FC = () => {
-  const navigate = useNavigate();
-  const { currentUser, requests, allUsers, skills, reviews, addRequest, isRequestsLoading, requestsError, fetchRequests } = useApp();
+  const [requests, setRequests] = useState<FavorRequest[]>([]);
+  const [metrics, setMetrics] = useState<CommunityMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
-  // Real-time Community Metrics calculated from DB/Context state
-  const totalCompletedFavors = useMemo(() => {
-    return requests.filter((r) => r.status === 'completed').length;
-  }, [requests]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { socket } = useSocketContext();
 
-  const totalActiveNeighbors = useMemo(() => {
-    return allUsers.length;
-  }, [allUsers]);
+  const categoryOptions = [
+    { name: 'All', icon: Sparkles, color: 'bg-[#355E3B] text-white' },
+    { name: 'Childcare', icon: Users, color: 'bg-[#355E3B]/10 text-[#355E3B]' },
+    { name: 'Tutoring', icon: GraduationCap, color: 'bg-[#6E8B5B]/10 text-[#6E8B5B]' },
+    { name: 'Repairs & Tools', icon: Wrench, color: 'bg-[#C96C4A]/10 text-[#C96C4A]' },
+    { name: 'Pet Care', icon: Dog, color: 'bg-[#355E3B]/10 text-[#355E3B]' },
+    { name: 'Groceries/Errands', icon: ShoppingBag, color: 'bg-[#6E8B5B]/10 text-[#6E8B5B]' },
+    { name: 'Tech Help', icon: Laptop, color: 'bg-[#C96C4A]/10 text-[#C96C4A]' },
+  ];
 
-  const totalSkillsShared = useMemo(() => {
-    return skills ? skills.length : 0;
-  }, [skills]);
+  // Floating community speech bubbles for living neighborhood scene
+  const floatingBubbles = [
+    { text: 'Need a drill for 30 mins?', author: 'Rohan', icon: '🔧', delay: 0 },
+    { text: 'Math tutoring available tonight', author: 'Ananya', icon: '📚', delay: 0.8 },
+    { text: 'Can someone collect my parcel?', author: 'Sunita', icon: '📦', delay: 1.5 },
+    { text: 'Riya can lend a cake stand', author: 'Riya', icon: '🍰', delay: 2.1 },
+  ];
 
-  const averageCommunityRating = useMemo(() => {
-    if (!reviews || reviews.length === 0) {
-      return currentUser?.averageRating ? currentUser.averageRating.toFixed(1) : '5.0';
+  // Trusted Neighbors with realistic response times and human details
+  const trustedNeighbors = [
+    {
+      id: 'char_priya',
+      name: 'Priya Singh',
+      role: 'Pet Sitting • Math Tutoring • Repairs',
+      rating: 4.8,
+      reviewsCount: 23,
+      favorsCount: 19,
+      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=250',
+      badge: 'Circle Leader',
+      responseTime: 'Usually replies in 5 mins',
+      activeStatus: 'Active 2 min ago',
+      recentNote: 'Riya can lend a cake stand or baking mixer this weekend.',
+      mutuals: 12,
+    },
+    {
+      id: 'char_aarav',
+      name: 'Aarav Patel',
+      role: 'Scooter Repair • Bosch Drill • Jumpstart',
+      rating: 4.9,
+      reviewsCount: 31,
+      favorsCount: 27,
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=250',
+      badge: 'Super Helper',
+      responseTime: 'Replies in ~10 mins',
+      activeStatus: 'Online now',
+      recentNote: 'Uncle Sharma needs help carrying groceries upstairs.',
+      mutuals: 18,
+    },
+    {
+      id: 'char_ananya',
+      name: 'Ananya Sharma',
+      role: 'Physics & Math • Plant Care',
+      rating: 4.7,
+      reviewsCount: 18,
+      favorsCount: 15,
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
+      badge: 'Trusted Neighbor',
+      responseTime: 'Replies in ~15 mins',
+      activeStatus: 'Seen 10 min ago',
+      recentNote: 'Aman is available for physics tutoring tonight.',
+      mutuals: 8,
+    },
+  ];
+
+  // Local community bulletin groups
+  const communityGroups = [
+    {
+      title: 'Sector 62 Plant & Garden Swaps',
+      members: 48,
+      description: 'Exchange saplings, organic soil, and watering favors when travelling.',
+      activeToday: '3 new posts today',
+      icon: '🌱',
+    },
+    {
+      title: 'Parenting & Childcare Circle',
+      members: 62,
+      description: 'Shared carpooling for school pickups and trusted babysitting swaps.',
+      activeToday: '5 active requests',
+      icon: '👶',
+    },
+    {
+      title: 'Tool Library & Hardware Club',
+      members: 89,
+      description: 'Don’t buy tools you only use once. Borrow drills, ladders & lawnmowers.',
+      activeToday: '12 items lent this week',
+      icon: '🛠️',
+    },
+  ];
+
+  const fetchCommunityData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [reqData, metricData] = await Promise.all([
+        getFavorRequests({
+          category: selectedCategory === 'All' ? undefined : selectedCategory,
+        }),
+        getCommunityMetrics(),
+      ]);
+
+      setRequests(reqData);
+      setMetrics(metricData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load community feed');
+    } finally {
+      setLoading(false);
     }
-    const sum = reviews.reduce((acc, r) => acc + (r.rating || 5), 0);
-    return (sum / reviews.length).toFixed(1);
-  }, [reviews, currentUser]);
-
-  // Request Modal state
-  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newCategory, setNewCategory] = useState('Household');
-  const [newDescription, setNewDescription] = useState('');
-  const [newUrgency, setNewUrgency] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
-  const [newPoints, setNewPoints] = useState('20 Points / Home baked cookies');
-  const [newDateNeeded, setNewDateNeeded] = useState('Tomorrow');
-
-  // Selected Helper Modal state
-  const [selectedHelper, setSelectedHelper] = useState<User | null>(null);
-
-  // Toast state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // 1. Recommended Requests (AI Smart Recommendation Engine)
-  const recommendedItems = useMemo(() => {
-    return getRecommendedRequests(currentUser, requests, 3);
-  }, [currentUser, requests]);
+  useEffect(() => {
+    fetchCommunityData();
+  }, [selectedCategory]);
 
-  // 2. Nearby Help Requests (Latest 3-4 active requests)
-  const nearbyRequests = useMemo(() => {
-    return requests.slice(0, 4);
-  }, [requests]);
-
-  // 2. Top Community Helpers (Top 3 users sorted by trust score / completed favors)
-  const topHelpers = useMemo(() => {
-    return [...allUsers]
-      .sort((a, b) => b.trustScore - a.trustScore || (b.completedFavors || 0) - (a.completedFavors || 0))
-      .slice(0, 3);
-  }, [allUsers]);
-
-  // Handle Search Submission
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/browse-help?search=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  // Handle Category Click
-  const handleCategoryClick = (category: string) => {
-    navigate(`/browse-help?category=${encodeURIComponent(category)}`);
-  };
-
-  // Handle Post Help Request from Modal
-  const handleCreateRequest = (e: React.FormEvent) => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newDescription.trim()) return;
+    if (!searchQuery.trim()) return;
+    setIsAiSearching(true);
+    searchFavorRequests(searchQuery)
+      .then((res) => {
+        setRequests(res);
+      })
+      .catch((err) => {
+        console.error('Search error:', err);
+      })
+      .finally(() => {
+        setIsAiSearching(false);
+      });
+  };
 
-    addRequest({
-      title: newTitle.trim(),
-      category: newCategory as RequestCategory,
-      description: newDescription.trim(),
-      urgency: newUrgency,
-      distance: '0.2 miles away',
-      pointsOrOffer: newPoints.trim() || undefined,
-      dateNeeded: newDateNeeded,
-      neighborhood: currentUser?.neighborhood || 'Maplewood Terrace',
+  // Real-time socket events
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('requestCreated', (newReq: FavorRequest) => {
+      setRequests((prev) => [newReq, ...prev]);
     });
 
-    setIsRequestModalOpen(false);
-    setNewTitle('');
-    setNewDescription('');
-    showToast('Help request posted successfully to your neighborhood!');
-  };
+    socket.on('requestUpdated', (updatedReq: FavorRequest) => {
+      setRequests((prev) => prev.map((r) => (r._id === updatedReq._id ? updatedReq : r)));
+    });
+
+    return () => {
+      socket.off('requestCreated');
+      socket.off('requestUpdated');
+    };
+  }, [socket]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-10">
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-20 right-4 z-50 bg-slate-900 text-white dark:bg-emerald-600 dark:text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 dark:border-emerald-500 flex items-center gap-2.5 text-xs font-semibold"
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-white shrink-0" />
-            <span>{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-10">
+      {/* Living Neighborhood Hero Section with Animated Characters */}
+      <div className="relative bg-[#F5F1E8] border border-[#E6DFD3] rounded-[2.5rem] p-6 sm:p-10 shadow-xs overflow-hidden">
+        {/* Soft Animated Background Circles */}
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-[#355E3B]/10 animate-pulse-circle pointer-events-none"></div>
+        <div className="absolute -bottom-16 -left-16 w-80 h-80 rounded-full bg-[#C96C4A]/10 animate-float pointer-events-none"></div>
 
-      {/* ==================== 1. TOP SECTION ==================== */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden"
-      >
-        <div className="space-y-1.5 z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-800 dark:text-indigo-300 text-xs font-semibold mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span>Neighborhood Hub</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-            Welcome back, {currentUser?.name || 'Sarah'} 👋
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
-            Let's make your neighborhood a little better today.
-          </p>
-        </div>
-
-        {/* Current Trust Score Badge */}
-        <div className="z-10 flex items-center gap-3 bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shrink-0">
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-              Your Reputation
-            </p>
-            <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-              {currentUser?.neighborhood || 'Maplewood Terrace'}
-            </p>
-          </div>
-          <TrustScoreBadge score={currentUser?.trustScore || 99} size="md" />
-        </div>
-
-        {/* Subtle Decorative Gradient */}
-        <div className="absolute top-0 right-0 w-96 h-full bg-gradient-to-l from-indigo-500/10 via-indigo-500/5 to-transparent rounded-r-3xl pointer-events-none" />
-      </motion.div>
-
-      {/* ==================== COMMUNITY IMPACT CARD ==================== */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.03 }}
-        className="bg-indigo-600 dark:bg-indigo-950 rounded-2xl p-5 text-white shadow-md space-y-3"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-500/40 pb-3">
-          <div className="flex items-center gap-2">
-            <HeartHandshake className="w-5 h-5 text-indigo-200" />
-            <h2 className="text-base font-extrabold tracking-tight">Community Impact</h2>
-          </div>
-          <p className="text-xs text-indigo-100 font-medium">
-            Helping neighbors build stronger communities.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3 text-center pt-1">
-          <div className="bg-white/10 rounded-xl p-2.5">
-            <div className="text-lg font-black sm:text-xl">128</div>
-            <div className="text-[10px] font-semibold text-indigo-200 uppercase tracking-wider">Completed Favors</div>
-          </div>
-          <div className="bg-white/10 rounded-xl p-2.5">
-            <div className="text-lg font-black sm:text-xl">98%</div>
-            <div className="text-[10px] font-semibold text-indigo-200 uppercase tracking-wider">Trust Score</div>
-          </div>
-          <div className="bg-white/10 rounded-xl p-2.5">
-            <div className="text-lg font-black sm:text-xl">84</div>
-            <div className="text-[10px] font-semibold text-indigo-200 uppercase tracking-wider">Skills Shared</div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ==================== 2. SEARCH ==================== */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-      >
-        <form onSubmit={handleSearchSubmit} className="relative w-full max-w-3xl mx-auto">
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search neighbors, skills or help requests..."
-            className="shadow-sm hover:shadow-md transition-shadow"
-          />
-        </form>
-      </motion.div>
-
-      {/* ==================== RECOMMENDED FOR YOU (SMART AI RECOMMENDATIONS) ==================== */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.07 }}
-        className="space-y-4"
-      >
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Recommended For You
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-300/60 dark:border-indigo-800/60 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                Smart Recommendations
-              </span>
+        <div className="relative z-10 space-y-6">
+          {/* Time/Weather Context Greeting Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#FBFAF7] rounded-full border border-[#E6DFD3] text-xs font-bold text-[#2F2F2F]">
+              <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" />
+              <span>Good morning, {user?.name || 'Priya'}! ☀️ Sector 62 Circle is active</span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Personalized matches calculated from your skills, profession, and neighborhood
-            </p>
+
+            <CircleAvatarStack />
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/browse-help')}
-            className="shrink-0"
-          >
-            <span>Explore All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-
-        {recommendedItems.length === 0 ? (
-          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
-            <p className="text-xs text-slate-500">No recommended requests available currently.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {recommendedItems.map(({ request, explanation }) => (
-              <RequestCard key={`rec-${request.id}`} request={request} explanation={explanation} />
-            ))}
-          </div>
-        )}
-      </motion.div>
-
-      {/* ==================== 3. QUICK ACTIONS ==================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        {/* 🆘 Request Help Card */}
-        <motion.div
-          whileHover={{ y: -3, scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          onClick={() => setIsRequestModalOpen(true)}
-          className="cursor-pointer bg-gradient-to-br from-rose-50 via-white to-rose-50/30 dark:from-rose-950/40 dark:via-slate-900 dark:to-slate-900 p-6 rounded-3xl border border-rose-200/80 dark:border-rose-900/40 shadow-xs hover:shadow-md transition-all group flex items-center justify-between"
-        >
-          <div className="space-y-2 max-w-md">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300 flex items-center justify-center text-2xl shadow-xs group-hover:scale-110 transition-transform">
-              🆘
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>Request Help</span>
-                <ChevronRight className="w-4 h-4 text-rose-500 group-hover:translate-x-1 transition-transform" />
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mt-0.5">
-                Need a hand with plumbing, pet sitting, or yard work? Ask verified neighbors nearby.
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* Left Headline & Integrated Search */}
+            <div className="lg:col-span-7 space-y-4">
+              <h1 className="font-extrabold text-3xl sm:text-4xl text-[#2F2F2F] tracking-tight leading-snug font-heading">
+                People around you, <br className="hidden sm:inline" />
+                <span className="text-[#C96C4A]">not strangers online.</span>
+              </h1>
+              <p className="text-sm text-[#2F2F2F]/80 font-medium leading-relaxed max-w-lg">
+                Borrow tools, swap favors, share tutoring or dog walking with verified neighbors in your local circle.
               </p>
-            </div>
-          </div>
-          <Button variant="danger" size="sm" className="hidden sm:inline-flex shrink-0">
-            Post Request
-          </Button>
-        </motion.div>
 
-        {/* 🛠 Offer Skill Card */}
-        <motion.div
-          whileHover={{ y: -3, scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          onClick={() => navigate('/offer-skill')}
-          className="cursor-pointer bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 p-6 rounded-3xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-xs hover:shadow-md transition-all group flex items-center justify-between"
-        >
-          <div className="space-y-2 max-w-md">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-2xl shadow-xs group-hover:scale-110 transition-transform">
-              🛠
+              {/* Integrated Search Bar on Paper background */}
+              <form onSubmit={handleSearchSubmit} className="relative max-w-xl">
+                <div className="relative flex items-center">
+                  <Search className="w-5 h-5 text-slate-400 absolute left-4" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search for help (e.g., drill, math tutor, dog walking)..."
+                    className="w-full pl-12 pr-28 py-3.5 bg-[#FBFAF7] text-[#2F2F2F] rounded-full text-xs sm:text-sm font-semibold placeholder:text-slate-400 border border-[#E6DFD3] focus:outline-hidden focus:border-[#C96C4A] shadow-2xs"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-2 px-4 py-2 bg-[#C96C4A] hover:bg-[#b25b3a] text-white text-xs font-extrabold rounded-full transition shadow-2xs"
+                  >
+                    {isAiSearching ? 'Scanning...' : 'Search'}
+                  </button>
+                </div>
+              </form>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>Offer Skill</span>
-                <ChevronRight className="w-4 h-4 text-emerald-500 group-hover:translate-x-1 transition-transform" />
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mt-0.5">
-                Share your time or expertise in tutoring, repairs, or gardening to earn Trust Points.
-              </p>
+
+            {/* Right Living Scene with Animated Illustrated Characters & Speech Bubbles */}
+            <div className="lg:col-span-5 relative min-h-[220px] flex items-center justify-center">
+              {/* Animated Vector Characters */}
+              <div className="flex items-center gap-2">
+                <CharacterToolShare className="w-32 h-32" />
+                <CharacterDogWalker className="w-28 h-28 hidden sm:block" />
+              </div>
+
+              {/* Floating Speech Bubbles */}
+              <div className="absolute inset-0 pointer-events-none">
+                {floatingBubbles.map((b, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: [0.8, 1, 0.8], y: [0, -4, 0] }}
+                    transition={{ repeat: Infinity, duration: 4, delay: b.delay }}
+                    className={`absolute bg-[#FBFAF7] border border-[#E6DFD3] px-3 py-1.5 rounded-2xl shadow-xs text-[11px] font-bold text-[#2F2F2F] flex items-center gap-1.5 ${
+                      idx === 0
+                        ? '-top-2 left-2'
+                        : idx === 1
+                        ? 'top-8 right-2'
+                        : idx === 2
+                        ? 'bottom-2 left-4'
+                        : 'bottom-8 right-4'
+                    }`}
+                  >
+                    <span>{b.icon}</span>
+                    <span className="truncate max-w-[140px]">{b.text}</span>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </div>
-          <Button variant="primary" size="sm" className="hidden sm:inline-flex shrink-0">
-            Offer Skill
-          </Button>
-        </motion.div>
+        </div>
       </div>
 
-      {/* ==================== 4. CATEGORIES ==================== */}
+      {/* Quick Action Circular Buttons */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-            Browse Categories
-          </h2>
-          <span className="text-[11px] text-slate-400 font-medium">
-            Scroll to discover
+        <h2 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest px-1">
+          Circle Shortcuts
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Quick Action 1: Browse Favors */}
+          <button
+            onClick={() => setSelectedCategory('All')}
+            className="bg-[#FBFAF7] border border-[#E6DFD3] p-4 rounded-3xl hover:border-[#355E3B] transition shadow-2xs hover:shadow-xs group flex items-center gap-3 text-left"
+          >
+            <div className="w-11 h-11 rounded-full bg-[#355E3B] text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-sm text-[#2F2F2F] block leading-tight">Browse Favors</span>
+              <span className="text-[10px] text-slate-500 font-medium">Explore all open asks</span>
+            </div>
+          </button>
+
+          {/* Quick Action 2: Ask for Help */}
+          <Link
+            to="/create-request"
+            className="bg-[#FBFAF7] border border-[#E6DFD3] p-4 rounded-3xl hover:border-[#C96C4A] transition shadow-2xs hover:shadow-xs group flex items-center gap-3 text-left"
+          >
+            <div className="w-11 h-11 rounded-full bg-[#C96C4A] text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+              <PlusCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-sm text-[#2F2F2F] block leading-tight">Ask for Help</span>
+              <span className="text-[10px] text-slate-500 font-medium">Post in your circle</span>
+            </div>
+          </Link>
+
+          {/* Quick Action 3: Offer Skills */}
+          <Link
+            to="/profile"
+            className="bg-[#FBFAF7] border border-[#E6DFD3] p-4 rounded-3xl hover:border-[#6E8B5B] transition shadow-2xs hover:shadow-xs group flex items-center gap-3 text-left"
+          >
+            <div className="w-11 h-11 rounded-full bg-[#6E8B5B] text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+              <HandHeart className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-sm text-[#2F2F2F] block leading-tight">Offer Skill</span>
+              <span className="text-[10px] text-slate-500 font-medium">List tool or favor</span>
+            </div>
+          </Link>
+
+          {/* Quick Action 4: Circles Map */}
+          <Link
+            to="/area-scan"
+            className="bg-[#FBFAF7] border border-[#E6DFD3] p-4 rounded-3xl hover:border-[#355E3B] transition shadow-2xs hover:shadow-xs group flex items-center gap-3 text-left"
+          >
+            <div className="w-11 h-11 rounded-full bg-[#355E3B] text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-sm text-[#2F2F2F] block leading-tight">Circles Map</span>
+              <span className="text-[10px] text-slate-500 font-medium">Visual map view</span>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Trusted Neighbors & Real Community Details (Mixed Card Heights Layout) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <h2 className="text-xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
+              Trusted Neighbors in Sector 62
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Real people with active response times and mutual connections
+            </p>
+          </div>
+          <Link to="/leaderboard" className="text-xs font-bold text-[#C96C4A] hover:underline flex items-center gap-1">
+            <span>View All</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          {trustedNeighbors.map((neighbor, idx) => (
+            <motion.div
+              key={neighbor.id}
+              whileHover={{ y: -3 }}
+              transition={{ duration: 0.15 }}
+              className={`bg-[#FBFAF7] rounded-[2rem] p-5 border border-[#E6DFD3] shadow-2xs space-y-4 flex flex-col justify-between hover:border-[#355E3B] transition ${
+                idx === 1 ? 'md:translate-y-2' : ''
+              }`}
+            >
+              <div className="space-y-3">
+                {/* Avatar & Badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <img
+                        src={neighbor.avatar}
+                        alt={neighbor.name}
+                        className="w-12 h-12 rounded-full object-cover ring-2 ring-[#355E3B]"
+                      />
+                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-[#2F2F2F]">{neighbor.name}</h3>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 bg-[#355E3B]/10 text-[#355E3B] rounded-full inline-block mt-0.5">
+                        {neighbor.badge}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-xs font-extrabold text-amber-500 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    <span>{neighbor.rating}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs font-semibold text-slate-600 leading-tight">{neighbor.role}</p>
+
+                {/* Real Community Detail Bubble */}
+                <div className="bg-[#F5F1E8] p-3 rounded-2xl border border-[#E6DFD3]/80 text-xs text-[#2F2F2F] space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                    <span>{neighbor.responseTime}</span>
+                    <span className="text-emerald-700 font-extrabold">{neighbor.activeStatus}</span>
+                  </div>
+                  <p className="text-[11px] font-medium leading-relaxed italic">
+                    "{neighbor.recentNote}"
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between text-xs border-t border-[#E6DFD3]">
+                <span className="font-bold text-[#355E3B] text-[11px]">
+                  {neighbor.mutuals} mutual connections
+                </span>
+                <Link
+                  to={`/chats?user=${neighbor.id}&name=${encodeURIComponent(neighbor.name)}&avatar=${encodeURIComponent(neighbor.avatar)}`}
+                  className="px-3.5 py-1.5 bg-[#355E3B] hover:bg-[#2c4e31] text-white text-[11px] font-bold rounded-full transition shadow-2xs"
+                >
+                  Message
+                </Link>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Circular Category Chips */}
+      <div className="bg-[#FBFAF7] p-4 rounded-[2rem] border border-[#E6DFD3] shadow-2xs space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider">
+            Explore Skills & Need Circles
+          </span>
+          <span className="text-xs font-bold text-[#6E8B5B]">Select a filter</span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {categoryOptions.map((cat) => {
+            const Icon = cat.icon;
+            const isSelected = selectedCategory === cat.name;
+            return (
+              <button
+                key={cat.name}
+                onClick={() => setSelectedCategory(cat.name)}
+                className={`px-4 py-2 rounded-full text-xs font-extrabold whitespace-nowrap transition flex items-center gap-2 border ${
+                  isSelected
+                    ? 'bg-[#355E3B] text-white border-[#355E3B] shadow-2xs'
+                    : 'bg-[#F5F1E8] hover:bg-[#E6DFD3] text-[#2F2F2F] border-[#E6DFD3]'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-[#C96C4A]'}`} />
+                <span>{cat.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Organic Feed of Live Favor Requests */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <h2 className="text-xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
+              Live Requests in Your Circle
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Neighborly help requests updated in real-time
+            </p>
+          </div>
+          <span className="text-xs font-extrabold px-3 py-1 bg-[#355E3B]/10 text-[#355E3B] rounded-full border border-[#355E3B]/20">
+            {requests.length} open favors
           </span>
         </div>
 
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => handleCategoryClick(cat)}
-              className="px-4 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap transition-all shadow-xs hover:shadow-sm shrink-0"
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ==================== 5. NEARBY HELP REQUESTS ==================== */}
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Nearby Help Requests
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Favors needed right now in {currentUser?.neighborhood || 'Maplewood Terrace'}
-            </p>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/browse-help')}
-            className="shrink-0"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-
-        {isRequestsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-48 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse" />
-            ))}
-          </div>
-        ) : requestsError ? (
-          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 flex items-center justify-between text-xs">
-            <span>Error loading requests: {requestsError}</span>
-            <Button variant="outline" size="sm" onClick={() => fetchRequests()}>
-              Retry
-            </Button>
-          </div>
-        ) : nearbyRequests.length === 0 ? (
-          <div className="p-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-2">
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No requests found nearby.</p>
-            <p className="text-xs text-slate-500">Be the first to create a help request in your neighborhood!</p>
-          </div>
+        {loading ? (
+          <LoadingSpinner label="Gathering local circle activity..." />
+        ) : error ? (
+          <ErrorMessage message={error} onRetry={fetchCommunityData} />
+        ) : requests.length === 0 ? (
+          <EmptyState
+            title="No Active Asks in This Filter"
+            description="Be the first neighbor to request help in your circle!"
+            actionText="Post a Request"
+            actionLink="/create-request"
+          />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {nearbyRequests.map((req) => (
-              <RequestCard key={req.id} request={req} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {requests.map((req, idx) => (
+              <motion.div
+                key={req._id}
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.15 }}
+                className="bg-[#FBFAF7] rounded-[2rem] border border-[#E6DFD3] p-5 shadow-2xs hover:border-[#C96C4A] hover:shadow-xs transition group flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#355E3B] text-white font-extrabold flex items-center justify-center text-xs shadow-2xs">
+                        {req.requester?.name ? req.requester.name.charAt(0).toUpperCase() : 'N'}
+                      </div>
+                      <div>
+                        <span className="font-extrabold text-[#2F2F2F] text-sm block">
+                          {req.requester?.name || 'Neighbor'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-bold">
+                          ★ {req.requester?.trustScore || '4.8'} Trust Rating
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] font-extrabold text-[#C96C4A] bg-[#C96C4A]/10 px-3 py-1 rounded-full border border-[#C96C4A]/20">
+                      {req.category}
+                    </span>
+                  </div>
+
+                  <h3 className="font-extrabold text-[#2F2F2F] text-base leading-snug group-hover:text-[#C96C4A] transition font-heading">
+                    {req.title}
+                  </h3>
+
+                  <p className="text-slate-600 text-xs leading-relaxed font-medium line-clamp-2">
+                    {req.summary || req.description}
+                  </p>
+                </div>
+
+                <div className="pt-4 mt-3 border-t border-[#E6DFD3] flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px]">
+                    <MapPin className="w-3.5 h-3.5 text-[#C96C4A]" />
+                    <span>{req.locationName || 'Sector 62, Noida'}</span>
+                  </div>
+
+                  <Link
+                    to={`/request/${req._id}`}
+                    className="px-4 py-2 bg-[#C96C4A] hover:bg-[#b25b3a] text-white text-xs font-extrabold rounded-full shadow-2xs transition flex items-center gap-1.5"
+                  >
+                    <span>Offer Help</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </motion.div>
             ))}
           </div>
         )}
       </div>
 
-      {/* ==================== 6. TOP TRUSTED NEIGHBORS ==================== */}
-      <div className="space-y-5">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+      {/* Community Groups & Local Clubs Cards */}
+      <div className="space-y-4 pt-4 border-t border-[#E6DFD3]">
+        <div className="flex items-center justify-between px-1">
           <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Top Trusted Neighbors
+            <h2 className="text-xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
+              Active Circle Groups
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Top 3 community members sorted by dynamic Trust Score and completed favors
+            <p className="text-xs text-slate-500 font-medium">
+              Join local interest circles in Sector 62
             </p>
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/leaderboard')}
-            className="shrink-0"
-          >
-            <span>Full Leaderboard</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {topHelpers.map((helper) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {communityGroups.map((grp, idx) => (
             <div
-              key={helper.id}
-              className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+              key={idx}
+              className="bg-[#F5F1E8] rounded-[2rem] p-5 border border-[#E6DFD3] shadow-2xs space-y-3 flex flex-col justify-between"
             >
-              {/* Profile Card Header & Details */}
-              <div className="space-y-3">
-                <ProfileCard user={helper} compact={false} />
-
-                {/* Profession Tag */}
-                <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  💼 {USER_PROFESSIONS[helper.id] || 'Community Volunteer'}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl">{grp.icon}</span>
+                  <span className="text-[10px] font-extrabold text-[#355E3B] bg-white px-2.5 py-1 rounded-full border border-[#E6DFD3]">
+                    {grp.members} members
+                  </span>
                 </div>
-
-                {/* Skills Chips */}
-                {helper.skills && helper.skills.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Skills
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {helper.skills.slice(0, 3).map((sk) => (
-                        <Badge key={sk} variant="indigo" className="text-[10px]">
-                          {sk}
-                        </Badge>
-                      ))}
-                      {helper.skills.length > 3 && (
-                        <Badge variant="slate" className="text-[10px]">
-                          +{helper.skills.length - 3} more
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <h3 className="font-extrabold text-sm text-[#2F2F2F]">{grp.title}</h3>
+                <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                  {grp.description}
+                </p>
               </div>
 
-              {/* View Profile Action Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedHelper(helper)}
-                className="w-full justify-center"
-              >
-                View Profile
-              </Button>
+              <div className="pt-2 border-t border-[#E6DFD3] flex items-center justify-between text-xs">
+                <span className="text-[10px] font-bold text-slate-500">{grp.activeToday}</span>
+                <button className="px-3 py-1 bg-white hover:bg-[#E6DFD3] text-[#2F2F2F] font-bold text-[11px] rounded-full border border-[#E6DFD3] transition">
+                  Join Circle
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* ==================== 7. COMMUNITY STATS ==================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-4"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center text-2xl shrink-0">
-            ❤️
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              128
-            </div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Favors Completed
-            </p>
-          </div>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-4"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl shrink-0">
-            👥
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              52
-            </div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Active Neighbors
-            </p>
-          </div>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-4"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-2xl shrink-0">
-            🛠
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              84
-            </div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Skills Shared
-            </p>
-          </div>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-4"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 dark:text-amber-400 flex items-center justify-center text-2xl shrink-0">
-            ⭐
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              4.9
-            </div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Community Rating
-            </p>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* ==================== 8. RECENT ACTIVITY ==================== */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-            <Activity className="w-4 h-4" />
-          </div>
-          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Recent Community Activity
-          </h2>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-          <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
-            {/* Timeline Item 1 */}
-            <div className="relative">
-              <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] ring-4 ring-white dark:ring-slate-900">
-                <Check className="w-3 h-3 stroke-[3]" />
-              </div>
-              <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                Rahul completed a tutoring session.
-              </p>
-              <p className="text-[10px] font-medium text-slate-400">2 hours ago</p>
-            </div>
-
-            {/* Timeline Item 2 */}
-            <div className="relative">
-              <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] ring-4 ring-white dark:ring-slate-900">
-                <Check className="w-3 h-3 stroke-[3]" />
-              </div>
-              <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                Aman offered Plumbing assistance.
-              </p>
-              <p className="text-[10px] font-medium text-slate-400">5 hours ago</p>
-            </div>
-
-            {/* Timeline Item 3 */}
-            <div className="relative">
-              <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] ring-4 ring-white dark:ring-slate-900">
-                <Check className="w-3 h-3 stroke-[3]" />
-              </div>
-              <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                Priya received a new 5-star review.
-              </p>
-              <p className="text-[10px] font-medium text-slate-400">Yesterday</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* CREATE HELP REQUEST MODAL */}
-      <Modal
-        isOpen={isRequestModalOpen}
-        onClose={() => setIsRequestModalOpen(false)}
-        title="Post a Help Request"
-        maxWidth="md"
-      >
-        <form onSubmit={handleCreateRequest} className="space-y-4">
-          <Input
-            label="What do you need help with?"
-            placeholder="e.g. Need help carrying couch or watering plants"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            required
-          />
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Category
-            </label>
-            <select
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-            >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Details & Instructions
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Describe the favor, tools required, or timing details..."
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Urgency Level
-              </label>
-              <select
-                value={newUrgency}
-                onChange={(e) => setNewUrgency(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              >
-                <option value="low">Flexible / Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High Priority</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
-
-            <Input
-              label="When needed?"
-              value={newDateNeeded}
-              onChange={(e) => setNewDateNeeded(e.target.value)}
-            />
-          </div>
-
-          <Input
-            label="Gratitude Offer (Optional)"
-            placeholder="e.g. Fresh baked pie, 20 Trust Points, or coffee"
-            value={newPoints}
-            onChange={(e) => setNewPoints(e.target.value)}
-          />
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsRequestModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="danger" size="sm">
-              Post Request
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* HELPER DETAIL PROFILE MODAL */}
-      <Modal
-        isOpen={!!selectedHelper}
-        onClose={() => setSelectedHelper(null)}
-        title="Community Helper Profile"
-        maxWidth="md"
-      >
-        {selectedHelper && (
-          <div className="space-y-5">
-            <div className="flex items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <img
-                src={selectedHelper.avatar}
-                alt={selectedHelper.name}
-                className="w-16 h-16 rounded-2xl object-cover ring-2 ring-emerald-500/30"
-              />
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    {selectedHelper.name}
-                  </h3>
-                  {selectedHelper.verifiedNeighbor && (
-                    <Badge variant="emerald" className="text-[10px]">
-                      Verified Neighbor
-                    </Badge>
-                  )}
-                </div>
-
-                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                  {USER_PROFESSIONS[selectedHelper.id] || 'Community Volunteer'}
-                </p>
-
-                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    {selectedHelper.neighborhood}
-                  </span>
-                  <TrustScoreBadge score={selectedHelper.trustScore} size="sm" />
-                </div>
-              </div>
-            </div>
-
-            {selectedHelper.bio && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  About
-                </h4>
-                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                  "{selectedHelper.bio}"
-                </p>
-              </div>
-            )}
-
-            {selectedHelper.skills && selectedHelper.skills.length > 0 && (
-              <div className="space-y-1.5">
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Skills Offered
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedHelper.skills.map((s) => (
-                    <Badge key={s} variant="indigo">
-                      {s}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center pt-2">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setSelectedHelper(null);
-                  navigate('/browse-help');
-                }}
-              >
-                Ask for Help
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedHelper(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };

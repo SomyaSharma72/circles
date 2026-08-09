@@ -1,8 +1,6 @@
 {
-  "name": "Neighborly",
-  "description": "A modern community platform for requesting help from neighbors and offering local skills.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "name": "Circles",
+  "description": "People around you, not strangers online. Local neighborhood help & favor exchange platform",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

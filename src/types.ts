@@ -1,100 +1,104 @@
+export interface UserLocation {
+  type: 'Point';
+  coordinates: [number, number]; // [longitude, latitude]
+}
+
 export interface User {
   id: string;
+  _id?: string;
   name: string;
   email: string;
-  avatar: string;
-  neighborhood: string;
-  address: string;
-  bio: string;
+  bio?: string;
+  neighborhood?: string;
   profession?: string;
-  trustScore: number; // e.g. 98% or 4.9/5
-  averageRating?: number;
-  verifiedNeighbor: boolean;
-  joinedDate: string;
   skills: string[];
+  trustScore: number;
   completedFavors: number;
-  reviewsCount: number;
-  phone?: string;
-  preferredContact?: 'chat' | 'phone' | 'email';
+  avatarUrl?: string;
+  location: UserLocation;
+  matchPercentage?: number;
+  rationale?: string;
 }
 
-export type RequestCategory =
-  | 'Gardening'
-  | 'Pet Care'
-  | 'Handyman'
-  | 'Tech Support'
-  | 'Tutoring'
-  | 'Errands'
-  | 'Borrow Items'
-  | 'Moving'
-  | 'Elderly Care'
-  | 'Other';
-
-export type RequestStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
-
-export interface HelpRequest {
-  id: string;
+export interface FavorRequest {
+  _id: string;
   title: string;
   description: string;
-  category: RequestCategory;
-  urgency: 'low' | 'medium' | 'high' | 'urgent';
-  neighborhood: string;
-  distance: string; // e.g. "0.3 miles away"
-  requesterId: string;
-  requesterName: string;
-  requesterAvatar: string;
-  requesterTrustScore: number;
-  helperId?: string;
-  helperName?: string;
-  helperAvatar?: string;
-  status: RequestStatus;
+  category: string;
+  urgency: 'Low' | 'Medium' | 'High' | 'Emergency';
+  tags: string[];
+  status: 'Open' | 'In Progress' | 'Completed' | 'Cancelled';
+  requester: User;
+  helper?: User;
+  summary?: string;
+  isFlaggedSpam?: boolean;
+  fraudReason?: string;
+  locationName?: string;
+  location: UserLocation;
   createdAt: string;
-  dateNeeded: string;
-  timeNeeded?: string;
-  pointsOrOffer?: string; // e.g., "Free / Neighborly Gratitude" or "Homemade Cookies"
-  savedByUsers?: string[];
-  commentsCount: number;
+  updatedAt: string;
+  distanceMiles?: number;
+  distanceKm?: number;
+  aiMatchScore?: number;
+  aiMatchReason?: string;
+  searchRelevance?: number;
+  searchExplanation?: string;
 }
 
-export interface SkillOffer {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  userTrustScore: number;
-  neighborhood: string;
-  title: string;
-  category: RequestCategory;
-  description: string;
-  availability: string; // e.g., "Weekends & Evenings"
-  skills: string[];
-  rating: number;
-  reviewCount: number;
-  createdAt: string;
-  serviceRadius?: string; // e.g., "Within 3 km"
-}
-
-export interface ChatMessage {
-  id: string;
-  requestId: string;
-  senderId: string;
-  senderName: string;
-  senderAvatar: string;
-  text: string;
-  timestamp: string;
-  isSystemNotice?: boolean;
+export interface Skill {
+  _id: string;
+  name: string;
+  category: string;
+  description?: string;
 }
 
 export interface Review {
-  id: string;
-  targetUserId: string;
-  authorId: string;
-  authorName: string;
-  authorAvatar: string;
-  requestId?: string;
-  requestTitle?: string;
-  rating: number; // 1-5
+  _id: string;
+  request: FavorRequest | string;
+  reviewer: User;
+  reviewee: User;
+  rating: number;
   comment: string;
-  date: string;
-  role: 'Requester' | 'Helper';
+  createdAt: string;
+}
+
+export interface Message {
+  _id: string;
+  request: string;
+  sender: User | any;
+  receiver: User | any;
+  text: string;
+  read?: boolean;
+  createdAt: string;
+}
+
+export interface Conversation {
+  requestId: string;
+  requestTitle: string;
+  requestCategory?: string;
+  requestStatus: string;
+  otherUser: {
+    _id: string;
+    id?: string;
+    name: string;
+    avatarUrl?: string;
+    trustScore?: number;
+    neighborhood?: string;
+  };
+  lastMessage: {
+    _id: string;
+    text: string;
+    sender: any;
+    createdAt: string;
+    read?: boolean;
+  };
+  unreadCount?: number;
+}
+
+export interface CommunityMetrics {
+  totalNeighbors: number;
+  totalRequests: number;
+  completedFavors: number;
+  uniqueSkillsShared: number;
+  averageCommunityRating: number;
 }

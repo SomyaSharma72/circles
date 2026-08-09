@@ -1,216 +1,169 @@
-import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { useApp } from '../context/AppContext';
-import { User } from '../types';
-import { getLeaderboard } from '../services/api';
-import { getReputationTier } from '../utils/reputation';
-import { TrustScoreBadge } from '../components/TrustScoreBadge';
-import { Trophy, Award, HeartHandshake, Star, ShieldCheck, User as UserIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import api from '../services/api';
+import { User, CommunityMetrics } from '../types';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { ErrorMessage } from '../components/ErrorMessage';
+import {
+  Trophy,
+  ShieldCheck,
+  CheckCircle2,
+  Users,
+  Sparkles,
+  MapPin,
+  Star,
+} from 'lucide-react';
 
 export const LeaderboardPage: React.FC = () => {
-  const { allUsers } = useApp();
-  const [topUsers, setTopUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [leaderboard, setLeaderboard] = useState<User[]>([]);
+  const [metrics, setMetrics] = useState<CommunityMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchBoard = async () => {
-      try {
-        const data = await getLeaderboard();
-        if (isMounted && data && data.length > 0) {
-          setTopUsers(data);
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        console.warn('Failed to fetch backend leaderboard, using local fallback:', err);
-      }
-
-      // Fallback sorting from local context users
-      if (isMounted) {
-        const sorted = [...allUsers]
-          .sort((a, b) => {
-            if (b.trustScore !== a.trustScore) {
-              return b.trustScore - a.trustScore;
-            }
-            return (b.completedFavors || 0) - (a.completedFavors || 0);
-          })
-          .slice(0, 10);
-
-        setTopUsers(sorted);
-        setLoading(false);
-      }
-    };
-
-    fetchBoard();
-    return () => {
-      isMounted = false;
-    };
-  }, [allUsers]);
-
-  const getRankBadge = (rank: number) => {
-    if (rank === 1) return { label: '1st', bg: 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300', icon: '🏆' };
-    if (rank === 2) return { label: '2nd', bg: 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-300', icon: '🥈' };
-    if (rank === 3) return { label: '3rd', bg: 'bg-amber-900/10 text-amber-900 dark:bg-amber-950/40 dark:text-amber-400 border-amber-800/20', icon: '🥉' };
-    return { label: `${rank}th`, bg: 'bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400 border-slate-200', icon: `#${rank}` };
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get('/leaderboard');
+      setLeaderboard(res.data?.leaderboard || []);
+      setMetrics(res.data?.metrics || null);
+    } catch (err: any) {
+      console.error('Leaderboard fetch error:', err);
+      setError(err.message || 'Failed to load community leaderboard');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8">
-      {/* Page Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden border border-indigo-800/40"
-      >
-        <div className="relative z-10 space-y-3 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold">
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span>Community Reputation Ranking</span>
-          </div>
-
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
-            Top Trusted Neighbors Leaderboard
-          </h1>
-
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Recognizing neighbors who build community trust through exceptional support, prompt favor fulfillment, and outstanding neighbor reviews.
-          </p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Header Banner */}
+      <div className="bg-[#FBFAF7] rounded-[2.5rem] p-6 sm:p-8 border border-[#E6DFD3] shadow-2xs space-y-3">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-[#355E3B]/10 border border-[#355E3B]/20 text-[#355E3B] rounded-full text-xs font-extrabold">
+          <Trophy className="w-3.5 h-3.5 text-[#355E3B]" />
+          <span>Circles Trust Leaderboard</span>
         </div>
-
-        {/* Background icon decoration */}
-        <Trophy className="absolute right-4 -bottom-6 w-56 h-56 text-amber-500/10 pointer-events-none" />
-      </motion.div>
-
-      {/* Leaderboard Table / Cards */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Top 10 Community Neighbors
-            </h2>
-          </div>
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            Sorted by Trust Score & Completed Favors
-          </span>
-        </div>
-
-        {loading ? (
-          <div className="p-12 text-center space-y-3">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs font-semibold text-slate-500">Calculating neighbor rankings...</p>
-          </div>
-        ) : topUsers.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs">
-            No active neighbors found on the leaderboard.
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-            {topUsers.map((user, index) => {
-              const rank = index + 1;
-              const rankBadge = getRankBadge(rank);
-              const tier = getReputationTier(user.trustScore);
-              const avgRatingStr = (user.averageRating !== undefined ? user.averageRating : 5.0).toFixed(1);
-
-              return (
-                <motion.div
-                  key={user.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${
-                    rank === 1
-                      ? 'bg-amber-50/40 dark:bg-amber-950/10'
-                      : rank === 2
-                      ? 'bg-slate-50/60 dark:bg-slate-800/20'
-                      : rank === 3
-                      ? 'bg-amber-950/5 dark:bg-amber-950/10'
-                      : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                  }`}
-                >
-                  {/* Left: Rank & User Info */}
-                  <div className="flex items-center gap-4 min-w-0">
-                    {/* Rank Indicator */}
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm border shrink-0 ${rankBadge.bg}`}>
-                      {rankBadge.icon}
-                    </div>
-
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                      {user.avatar ? (
-                        <img
-                          src={user.avatar}
-                          alt={user.name}
-                          className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-500/20"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                          <UserIcon className="w-6 h-6" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Name & Badge */}
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate">
-                          {user.name}
-                        </h3>
-                        {user.verifiedNeighbor && (
-                          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        )}
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${tier.colorClass}`}>
-                          {tier.badge}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {user.neighborhood || 'Neighbor'} • {user.profession || 'Community Member'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right: Stats (Trust Score, Favors, Rating) */}
-                  <div className="flex items-center gap-6 sm:gap-8 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 dark:border-slate-800">
-                    {/* Trust Score */}
-                    <div className="text-center">
-                      <div className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400">
-                        {user.trustScore} / 100
-                      </div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Trust Score
-                      </div>
-                    </div>
-
-                    {/* Completed Favors */}
-                    <div className="text-center">
-                      <div className="text-sm sm:text-base font-black text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1">
-                        <HeartHandshake className="w-3.5 h-3.5" />
-                        <span>{user.completedFavors || 0}</span>
-                      </div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Completed
-                      </div>
-                    </div>
-
-                    {/* Average Rating */}
-                    <div className="text-center min-w-[60px]">
-                      <div className="text-sm sm:text-base font-black text-amber-500 dark:text-amber-400 flex items-center justify-center gap-1">
-                        <Star className="w-3.5 h-3.5 fill-amber-500" />
-                        <span>{avgRatingStr}</span>
-                      </div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Avg Rating
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
+        <h1 className="text-3xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
+          Most Helpful Neighbors
+        </h1>
+        <p className="text-slate-600 text-xs sm:text-sm font-medium leading-relaxed max-w-2xl">
+          Verified neighbors who lend tools, offer tutoring, share pet care, and build real community trust in Sector 62 & surrounding blocks.
+        </p>
       </div>
+
+      {/* Stats Strip */}
+      {metrics && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-[#FBFAF7] p-4 rounded-3xl border border-[#E6DFD3] shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#355E3B]/10 text-[#355E3B] flex items-center justify-center font-extrabold">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-lg font-extrabold text-[#2F2F2F] leading-none font-heading">{metrics.totalNeighbors}</p>
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">Verified Neighbors</p>
+            </div>
+          </div>
+
+          <div className="bg-[#FBFAF7] p-4 rounded-3xl border border-[#E6DFD3] shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-extrabold">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-lg font-extrabold text-[#2F2F2F] leading-none font-heading">{metrics.completedFavors}</p>
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">Favors Completed</p>
+            </div>
+          </div>
+
+          <div className="bg-[#FBFAF7] p-4 rounded-3xl border border-[#E6DFD3] shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#C96C4A]/10 text-[#C96C4A] flex items-center justify-center font-extrabold">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-lg font-extrabold text-[#2F2F2F] leading-none font-heading">{metrics.uniqueSkillsShared}</p>
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">Skills Shared</p>
+            </div>
+          </div>
+
+          <div className="bg-[#FBFAF7] p-4 rounded-3xl border border-[#E6DFD3] shadow-2xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-extrabold">
+              <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
+            </div>
+            <div>
+              <p className="text-lg font-extrabold text-[#2F2F2F] leading-none font-heading">{metrics.averageCommunityRating} / 5.0</p>
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">Trust Rating</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leaderboard List */}
+      {loading ? (
+        <LoadingSpinner label="Calculating trusted neighbor rankings..." />
+      ) : error ? (
+        <ErrorMessage message={error} onRetry={fetchLeaderboard} />
+      ) : leaderboard.length === 0 ? (
+        <div className="bg-[#FBFAF7] border border-[#E6DFD3] rounded-3xl p-8 text-center text-slate-500 text-xs font-medium">
+          No neighbors registered yet. Be the first to join!
+        </div>
+      ) : (
+        <div className="bg-[#FBFAF7] border border-[#E6DFD3] rounded-[2rem] overflow-hidden shadow-2xs">
+          <div className="p-5 border-b border-[#E6DFD3] flex items-center justify-between">
+            <h2 className="font-extrabold text-[#2F2F2F] text-base font-heading">Circle of Trust Honor Roll</h2>
+            <span className="text-xs text-slate-500 font-medium">Ranked by Trust Score & Favors</span>
+          </div>
+
+          <div className="divide-y divide-[#E6DFD3]">
+            {leaderboard.map((user, rank) => (
+              <div key={user._id || user.id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-[#F5F1E8] transition">
+                <div className="flex items-center gap-3.5">
+                  {/* Rank Badge */}
+                  <div
+                    className={`w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center shrink-0 ${
+                      rank === 0
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : rank === 1
+                        ? 'bg-[#355E3B]/10 text-[#355E3B] border border-[#355E3B]/20'
+                        : rank === 2
+                        ? 'bg-[#C96C4A]/10 text-[#C96C4A] border border-[#C96C4A]/20'
+                        : 'bg-[#F5F1E8] text-slate-600'
+                    }`}
+                  >
+                    #{rank + 1}
+                  </div>
+
+                  {/* Avatar & Name */}
+                  <div className="w-10 h-10 rounded-full bg-[#355E3B] text-white font-extrabold flex items-center justify-center text-sm shrink-0 border border-[#355E3B]">
+                    {user.name.charAt(0)}
+                  </div>
+
+                  <div>
+                    <h3 className="font-extrabold text-[#2F2F2F] text-sm flex items-center gap-2 font-heading">
+                      <span>{user.name}</span>
+                      {rank === 0 && <span className="text-[10px] text-[#355E3B] bg-[#355E3B]/10 px-2.5 py-0.5 rounded-full font-bold">🏆 Circle Host</span>}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-[#C96C4A]" /> {user.neighborhood || 'Sector 62'} • {user.profession}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="inline-flex items-center gap-1 text-xs font-extrabold text-[#355E3B] bg-[#355E3B]/10 px-3 py-1 rounded-full border border-[#355E3B]/20">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#355E3B]" />
+                    <span>{user.trustScore} Trust</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1">
+                    {user.completedFavors} Favors
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,195 +1,291 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { Button } from './Button';
+import React from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'motion/react';
 import {
-  HeartHandshake,
-  Search,
-  Bookmark,
-  Settings,
-  Moon,
-  Sun,
-  UserCircle2,
-  Menu,
-  X,
+  PlusCircle,
+  MapPin,
+  ChevronDown,
+  Zap,
+  Home,
+  User,
+  LogOut,
+  ShieldCheck,
   Compass,
   MessageSquare,
-  Trophy,
-  LogOut
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useSocketContext } from '../context/SocketContext';
 
 export const Navbar: React.FC = () => {
-  const { currentUser, isDarkMode, toggleDarkMode, logout } = useApp();
+  const { user, login, logout } = useAuth();
+  const { isReconnecting } = useSocketContext();
+  const navigate = useNavigate();
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const navLinks = [
-    { label: 'Browse Help', path: '/browse-help', icon: Search },
-    { label: 'Offer Skills', path: '/offer-skill', icon: Compass },
-    { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
-    { label: 'Active Favor', path: '/active-favor', icon: HeartHandshake },
-    { label: 'My Favors', path: '/my-requests', icon: Bookmark },
-    { label: 'Chat', path: '/chat', icon: MessageSquare },
-  ];
 
   const isActive = (path: string) => location.pathname === path;
 
+  const handleQuickDemo = async () => {
+    try {
+      await login('priya@neighborly.app', 'password123');
+      navigate('/profile');
+    } catch (err) {
+      console.error('Quick demo login error:', err);
+      navigate('/auth');
+    }
+  };
+
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link to={currentUser ? "/home" : "/login"} className="flex items-center gap-2.5 group">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
-                <HeartHandshake className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="font-extrabold text-xl text-slate-900 dark:text-white tracking-tight">
-                  Neighborly
-                </span>
-                <span className="block text-[10px] font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-widest -mt-1">
-                  Community Favors
-                </span>
-              </div>
-            </Link>
+      {/* Top Header Bar */}
+      <header className="sticky top-0 z-40 bg-[#FBFAF7]/90 backdrop-blur-md border-b border-[#E6DFD3] px-4 sm:px-8 py-3 flex items-center justify-between shadow-2xs">
+        {/* Reconnecting Alert */}
+        {isReconnecting && (
+          <div className="absolute top-full left-0 right-0 bg-[#C96C4A] text-white text-xs py-1 px-4 text-center font-bold flex items-center justify-center gap-2 z-50">
+            <span>Reconnecting to neighborhood circle...</span>
+          </div>
+        )}
 
-            {/* Desktop Navigation - Only visible when logged in */}
-            {currentUser && (
-              <nav className="hidden md:flex items-center gap-1">
-                {navLinks.map((link) => {
-                  const Icon = link.icon;
-                  const active = isActive(link.path);
-                  return (
-                    <Link
-                      key={link.path}
-                      to={link.path}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
-                        active
-                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-semibold'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{link.label}</span>
-                    </Link>
-                  );
-                })}
-              </nav>
-            )}
-
-            {/* Right Action Bar */}
-            <div className="hidden md:flex items-center gap-2.5">
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                title="Toggle Dark Mode"
-              >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-
-              {currentUser ? (
-                <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-                  <Link
-                    to="/profile"
-                    className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <img
-                      src={currentUser.avatar}
-                      alt={currentUser.name}
-                      className="w-8 h-8 rounded-full object-cover ring-2 ring-emerald-500/30"
-                    />
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[100px] truncate">
-                      {currentUser.name.split(' ')[0]}
-                    </span>
-                  </Link>
-
-                  <Link to="/settings">
-                    <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800" title="Settings">
-                      <Settings className="w-4 h-4" />
-                    </button>
-                  </Link>
-
-                  <button
-                    onClick={() => logout()}
-                    className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title="Log Out"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <Link to="/login">
-                  <Button variant="primary" size="sm">
-                    <UserCircle2 className="w-4 h-4" />
-                    Sign In
-                  </Button>
-                </Link>
-              )}
+        {/* Brand & Interconnected Rings Logo */}
+        <div className="flex items-center gap-3 sm:gap-6">
+          <Link to="/" className="flex items-center gap-3 group">
+            {/* Interconnected Rings Logo */}
+            <div className="relative w-9 h-9 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-[#355E3B] opacity-90 group-hover:scale-105 transition"></div>
+              <div className="absolute top-1 left-1 w-5 h-5 rounded-full border-2 border-[#FBFAF7]"></div>
+              <div className="absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-[#C96C4A] bg-[#C96C4A]/30"></div>
             </div>
 
-            {/* Mobile menu toggle */}
-            <div className="flex md:hidden items-center gap-2">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
-              >
-                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
+            <div>
+              <span className="font-extrabold text-2xl text-[#2F2F2F] tracking-tight block leading-none font-heading">
+                Circles
+              </span>
+              <span className="text-[10px] font-semibold text-[#6E8B5B] block mt-0.5 tracking-tight">
+                People around you, not strangers online.
+              </span>
             </div>
+          </Link>
+
+          {/* Location Picker Pill */}
+          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-[#F5F1E8] hover:bg-[#E6DFD3] rounded-full text-xs font-bold text-[#2F2F2F] cursor-pointer transition border border-[#E6DFD3] shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-[#355E3B] animate-pulse"></span>
+            <MapPin className="w-3.5 h-3.5 text-[#C96C4A] shrink-0" />
+            <span className="truncate max-w-[140px]">Sector 62, Noida</span>
+            <ChevronDown className="w-3 h-3 text-slate-400" />
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-2 pb-4 space-y-2">
-            {currentUser && navLinks.map((link) => {
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ${
-                    isActive(link.path)
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                      : 'text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{link.label}</span>
-                </Link>
-              );
-            })}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              {currentUser ? (
-                <Link
-                  to="/profile"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center gap-3"
-                >
-                  <img src={currentUser.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
-                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                    {currentUser.name}
-                  </span>
-                </Link>
-              ) : (
-                <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant="primary" size="sm">
-                    Sign In
-                  </Button>
-                </Link>
-              )}
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 text-slate-500 rounded-lg bg-slate-100 dark:bg-slate-800"
+        {/* Right Action Bar */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Ask for Help Button */}
+          <Link
+            to="/create-request"
+            className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 bg-[#C96C4A] hover:bg-[#b25b3a] text-white text-xs font-bold rounded-full shadow-xs transition active:scale-95"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Ask for Help</span>
+          </Link>
+
+          {user ? (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/chats"
+                className={`p-2 rounded-full border transition flex items-center gap-1.5 text-xs font-bold ${
+                  isActive('/chats')
+                    ? 'bg-[#355E3B] text-white border-[#355E3B]'
+                    : 'bg-[#F5F1E8] hover:bg-[#E6DFD3] text-[#355E3B] border-[#E6DFD3]'
+                }`}
+                title="Neighborhood Chats"
               >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                <MessageSquare className="w-4 h-4" />
+                <span className="hidden md:inline">Chats</span>
+              </Link>
+
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-[#F5F1E8] hover:bg-[#E6DFD3] border border-[#E6DFD3] transition group shadow-2xs"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#355E3B] text-white font-extrabold text-xs flex items-center justify-center shadow-2xs">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left hidden lg:block">
+                  <span className="text-xs font-extrabold text-[#2F2F2F] block leading-none group-hover:text-[#C96C4A]">
+                    {user.name}
+                  </span>
+                  <span className="text-[10px] text-[#355E3B] font-bold flex items-center gap-0.5 mt-0.5">
+                    <ShieldCheck className="w-2.5 h-2.5" />
+                    {user.trustScore} Trust
+                  </span>
+                </div>
+              </Link>
+
+              <button
+                onClick={() => {
+                  logout();
+                  navigate('/auth');
+                }}
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition"
+                title="Log out"
+              >
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleQuickDemo}
+                className="px-3.5 py-1.5 bg-[#C96C4A]/10 hover:bg-[#C96C4A]/20 text-[#C96C4A] border border-[#C96C4A]/30 text-xs font-bold rounded-full transition flex items-center gap-1.5"
+                title="Instant 1-Click Demo Login"
+              >
+                <Zap className="w-3.5 h-3.5 fill-[#C96C4A] text-[#C96C4A]" />
+                <span className="hidden sm:inline">1-Click Demo</span>
+              </button>
+              <Link
+                to="/auth"
+                className="px-4 py-1.5 bg-[#355E3B] hover:bg-[#2c4e31] text-white text-xs font-bold rounded-full transition shadow-2xs"
+              >
+                Log In
+              </Link>
+            </div>
+          )}
+        </div>
       </header>
+
+      {/* Fixed Circular Active Bottom Navigation Bar */}
+      <nav className="fixed bottom-3 left-0 right-0 z-50 px-4 max-w-md mx-auto sm:max-w-xl">
+        <div className="bg-[#FBFAF7]/95 backdrop-blur-md border border-[#E6DFD3] py-2 px-4 shadow-xl rounded-full flex items-center justify-around">
+          {/* Tab 1: Home */}
+          <Link
+            to="/"
+            className="relative flex flex-col items-center justify-center p-2 text-xs font-bold transition group"
+          >
+            {isActive('/') && (
+              <motion.div
+                layoutId="activeCircleTab"
+                className="absolute inset-0 bg-[#355E3B]/15 rounded-full"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+            <Home
+              className={`w-5 h-5 relative z-10 ${
+                isActive('/') ? 'text-[#355E3B] stroke-[2.5]' : 'text-slate-500 group-hover:text-[#2F2F2F]'
+              }`}
+            />
+            <span
+              className={`text-[11px] relative z-10 mt-0.5 ${
+                isActive('/') ? 'text-[#355E3B] font-extrabold' : 'text-slate-500'
+              }`}
+            >
+              Home
+            </span>
+          </Link>
+
+          {/* Tab 2: Map */}
+          <Link
+            to="/area-scan"
+            className="relative flex flex-col items-center justify-center p-2 text-xs font-bold transition group"
+          >
+            {isActive('/area-scan') && (
+              <motion.div
+                layoutId="activeCircleTab"
+                className="absolute inset-0 bg-[#C96C4A]/15 rounded-full"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+            <Compass
+              className={`w-5 h-5 relative z-10 ${
+                isActive('/area-scan') ? 'text-[#C96C4A] stroke-[2.5]' : 'text-slate-500 group-hover:text-[#2F2F2F]'
+              }`}
+            />
+            <span
+              className={`text-[11px] relative z-10 mt-0.5 ${
+                isActive('/area-scan') ? 'text-[#C96C4A] font-extrabold' : 'text-slate-500'
+              }`}
+            >
+              Circles Map
+            </span>
+          </Link>
+
+          {/* Tab 3: Chats */}
+          <Link
+            to={user ? "/chats" : "/auth"}
+            className="relative flex flex-col items-center justify-center p-2 text-xs font-bold transition group"
+          >
+            {isActive('/chats') && (
+              <motion.div
+                layoutId="activeCircleTab"
+                className="absolute inset-0 bg-[#355E3B]/15 rounded-full"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+            <MessageSquare
+              className={`w-5 h-5 relative z-10 ${
+                isActive('/chats') ? 'text-[#355E3B] stroke-[2.5]' : 'text-slate-500 group-hover:text-[#2F2F2F]'
+              }`}
+            />
+            <span
+              className={`text-[11px] relative z-10 mt-0.5 ${
+                isActive('/chats') ? 'text-[#355E3B] font-extrabold' : 'text-slate-500'
+              }`}
+            >
+              Chats
+            </span>
+          </Link>
+
+          {/* Tab 4: Request */}
+          <Link
+            to="/create-request"
+            className="relative flex flex-col items-center justify-center p-2 text-xs font-bold transition group"
+          >
+            {isActive('/create-request') && (
+              <motion.div
+                layoutId="activeCircleTab"
+                className="absolute inset-0 bg-[#C96C4A]/15 rounded-full"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+            <PlusCircle
+              className={`w-5 h-5 relative z-10 ${
+                isActive('/create-request') ? 'text-[#C96C4A] stroke-[2.5]' : 'text-[#C96C4A]'
+              }`}
+            />
+            <span
+              className={`text-[11px] relative z-10 mt-0.5 ${
+                isActive('/create-request') ? 'text-[#C96C4A] font-extrabold' : 'text-slate-500'
+              }`}
+            >
+              Request
+            </span>
+          </Link>
+
+          {/* Tab 5: Profile */}
+          <Link
+            to={user ? "/profile" : "/auth"}
+            className="relative flex flex-col items-center justify-center p-2 text-xs font-bold transition group"
+          >
+            {(isActive('/profile') || isActive('/dashboard')) && (
+              <motion.div
+                layoutId="activeCircleTab"
+                className="absolute inset-0 bg-[#355E3B]/15 rounded-full"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+            <User
+              className={`w-5 h-5 relative z-10 ${
+                (isActive('/profile') || isActive('/dashboard'))
+                  ? 'text-[#355E3B] stroke-[2.5]'
+                  : 'text-slate-500 group-hover:text-[#2F2F2F]'
+              }`}
+            />
+            <span
+              className={`text-[11px] relative z-10 mt-0.5 ${
+                (isActive('/profile') || isActive('/dashboard')) ? 'text-[#355E3B] font-extrabold' : 'text-slate-500'
+              }`}
+            >
+              Profile
+            </span>
+          </Link>
+        </div>
+      </nav>
     </>
   );
 };

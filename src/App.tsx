@@ -1,59 +1,49 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useApp } from './context/AppContext';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
-import { ProtectedRoute } from './components/ProtectedRoute';
 
 import { HomePage } from './pages/HomePage';
-import { LoginPage } from './pages/LoginPage';
-import { SignUpPage } from './pages/SignUpPage';
-import { CompleteProfilePage } from './pages/CompleteProfilePage';
-import { BrowseHelpPage } from './pages/BrowseHelpPage';
-import { RequestDetailPage } from './pages/RequestDetailPage';
-import { OfferSkillPage } from './pages/OfferSkillPage';
-import { MyRequestsPage } from './pages/MyRequestsPage';
-import { ChatPage } from './pages/ChatPage';
+import { AreaScanPage } from './pages/AreaScanPage';
+import { AuthPage } from './pages/AuthPage';
+import { CreateRequestPage } from './pages/CreateRequestPage';
+import { RequestDetailsPage } from './pages/RequestDetailsPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { SettingsPage } from './pages/SettingsPage';
-import { ActiveFavorPage } from './pages/ActiveFavorPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
+import { ChatsPage } from './pages/ChatsPage';
+
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export function App() {
-  const { currentUser } = useApp();
-
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans">
-      {currentUser && <Navbar />}
-      <main className="flex-1">
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-
-          {/* Protected Routes */}
-          <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-          <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfilePage /></ProtectedRoute>} />
-          <Route path="/browse-help" element={<ProtectedRoute><BrowseHelpPage /></ProtectedRoute>} />
-          <Route path="/browse-help/:id" element={<ProtectedRoute><RequestDetailPage /></ProtectedRoute>} />
-          <Route path="/requests" element={<ProtectedRoute><BrowseHelpPage /></ProtectedRoute>} />
-          <Route path="/requests/:id" element={<ProtectedRoute><RequestDetailPage /></ProtectedRoute>} />
-          <Route path="/offer-skill" element={<ProtectedRoute><OfferSkillPage /></ProtectedRoute>} />
-          <Route path="/active-favor" element={<ProtectedRoute><ActiveFavorPage /></ProtectedRoute>} />
-          <Route path="/my-requests" element={<ProtectedRoute><MyRequestsPage /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-          <Route path="/chat/:requestId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </main>
-      {currentUser && <Footer />}
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <SocketProvider>
+          <ErrorBoundary>
+            <div className="min-h-screen bg-[#FBFAF7] text-[#2F2F2F] flex flex-col font-sans selection:bg-[#355E3B] selection:text-white relative overflow-x-hidden">
+              <Navbar />
+              <main className="flex-1 relative z-10 pb-20">
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/area-scan" element={<AreaScanPage />} />
+                  <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/create-request" element={<CreateRequestPage />} />
+                  <Route path="/request/:id" element={<RequestDetailsPage />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/leaderboard" element={<LeaderboardPage />} />
+                  <Route path="/chats" element={<ChatsPage />} />
+                </Routes>
+              </main>
+              <Footer />
+            </div>
+          </ErrorBoundary>
+        </SocketProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

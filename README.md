@@ -1,30 +1,20 @@
-# Neighborly — Full-Stack Community Application
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-A modern community platform for requesting help from neighbors, offering skills, and building local trust.
+# Run and deploy your AI Studio app
 
-## Project Structure
+This contains everything you need to run your app locally.
 
-```
-neighborly/
-├── frontend/          # React + Vite + Tailwind CSS
-├── backend/           # Node.js + Express REST API
-└── README.md
-```
+View your app in AI Studio: https://ai.studio/apps/76fe3119-d3af-4608-b6ba-1cee9a72be6b
 
-## Running the Application
+## Run Locally
 
-### Frontend
+**Prerequisites:**  Node.js
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
 
-### Backend
-
-```bash
-cd backend
-npm install
-npm run dev
-```
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
