@@ -8,7 +8,7 @@ Circles is a community-first platform where residents can request or offer small
 
 ## Live Demo
 
-**Website:** https://brainwave-gmllyko5a-somyasharma72s-projects.vercel.app/
+**Website:** https://brainwave-lemon-theta.vercel.app/
 
 **Backend API:** https://circles-backend-gg09.onrender.com/
 
