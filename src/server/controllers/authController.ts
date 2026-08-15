@@ -53,6 +53,7 @@ export const signup = async (req: Request, res: Response) => {
         return res.status(201).json({
           token,
           user: {
+            _id: user._id,
             id: user._id,
             name: user.name,
             email: user.email,
@@ -100,6 +101,7 @@ export const signup = async (req: Request, res: Response) => {
     return res.status(201).json({
       token,
       user: {
+        _id: mockUser._id,
         id: mockUser._id,
         name: mockUser.name,
         email: mockUser.email,
@@ -137,6 +139,7 @@ export const login = async (req: Request, res: Response) => {
             return res.json({
               token,
               user: {
+                _id: user._id,
                 id: user._id,
                 name: user.name,
                 email: user.email,
@@ -174,6 +177,7 @@ export const login = async (req: Request, res: Response) => {
     return res.json({
       token,
       user: {
+        _id: mockUser._id,
         id: mockUser._id,
         name: mockUser.name,
         email: mockUser.email,
@@ -205,6 +209,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
         if (user) {
           return res.json({
             user: {
+              _id: user._id,
               id: user._id,
               name: user.name,
               email: user.email,
@@ -232,6 +237,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
 
     return res.json({
       user: {
+        _id: mockUser._id,
         id: mockUser._id,
         name: mockUser.name,
         email: mockUser.email,
@@ -393,4 +399,55 @@ export const getUserById = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch user details' });
   }
 };
+
+export const searchNeighbors = async (req: Request, res: Response) => {
+  try {
+    const query = ((req.query.query || req.query.search || '') as string).trim();
+
+    if (isDBConnected()) {
+      try {
+        let filter: any = {};
+        if (query) {
+          filter = {
+            $or: [
+              { name: { $regex: query, $options: 'i' } },
+              { skills: { $elemMatch: { $regex: query, $options: 'i' } } },
+              { profession: { $regex: query, $options: 'i' } },
+              { bio: { $regex: query, $options: 'i' } },
+              { neighborhood: { $regex: query, $options: 'i' } },
+            ],
+          };
+        }
+        const users = await User.find(filter).select('-passwordHash').limit(20);
+        if (users && users.length > 0) {
+          return res.json(
+            users.map((u) => ({
+              _id: u._id,
+              id: u._id,
+              name: u.name,
+              email: u.email,
+              bio: u.bio,
+              neighborhood: u.neighborhood,
+              profession: u.profession,
+              skills: u.skills,
+              trustScore: u.trustScore,
+              completedFavors: u.completedFavors,
+              avatarUrl: u.avatarUrl,
+              location: u.location,
+            }))
+          );
+        }
+      } catch (dbErr) {
+        console.warn('MongoDB searchNeighbors error:', dbErr);
+      }
+    }
+
+    const mockResults = mockStore.searchNeighbors(query);
+    return res.json(mockResults);
+  } catch (err: any) {
+    console.error('searchNeighbors error:', err);
+    res.status(500).json({ error: 'Failed to search neighbors' });
+  }
+};
+
 

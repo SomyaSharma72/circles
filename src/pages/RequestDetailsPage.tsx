@@ -39,7 +39,82 @@ export const RequestDetailsPage: React.FC = () => {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const getEntityId = (entity: any): string => {
+    if (!entity) return '';
+    if (typeof entity === 'string') return entity;
+    return String(entity._id || entity.id || '');
+  };
+
+  const isOutgoingMessage = (
+    msg: Message,
+    currentUser: any,
+    otherUser?: any
+  ): boolean => {
+    if (!msg) return false;
+
+    const currentId = currentUser ? String(currentUser._id || currentUser.id || '').trim() : '';
+    const currentEmail = currentUser?.email ? currentUser.email.toLowerCase().trim() : '';
+    const currentName = currentUser?.name ? currentUser.name.toLowerCase().trim() : '';
+
+    const otherId = otherUser ? String(otherUser._id || otherUser.id || '').trim() : '';
+    const otherEmail = otherUser?.email ? otherUser.email.toLowerCase().trim() : '';
+    const otherName = otherUser?.name ? otherUser.name.toLowerCase().trim() : '';
+
+    // Extract sender identifiers
+    let senderId = '';
+    let senderEmail = '';
+    let senderName = '';
+
+    if (typeof msg.sender === 'string') {
+      senderId = msg.sender.trim();
+    } else if (msg.sender && typeof msg.sender === 'object') {
+      senderId = String(msg.sender._id || msg.sender.id || (msg.sender as any).userId || '').trim();
+      senderEmail = msg.sender.email ? msg.sender.email.toLowerCase().trim() : '';
+      senderName = msg.sender.name ? msg.sender.name.toLowerCase().trim() : '';
+    }
+
+    // 1. Definite match against neighbor / otherUser -> Incoming from neighbor (false)
+    if (otherId && senderId && otherId === senderId) return false;
+    if (otherEmail && senderEmail && otherEmail === senderEmail) return false;
+    if (otherName && senderName && otherName === senderName && otherName !== currentName) return false;
+
+    // 2. Direct match against authenticated currentUser -> Outgoing (true)
+    if (currentId && senderId && currentId === senderId) return true;
+    if (currentEmail && senderEmail && currentEmail === senderEmail) return true;
+    if (currentName && senderName && currentName === senderName && senderName !== otherName) return true;
+
+    // 3. Fallback check via receiver field
+    let receiverId = '';
+    let receiverEmail = '';
+    if (typeof msg.receiver === 'string') {
+      receiverId = msg.receiver.trim();
+    } else if (msg.receiver && typeof msg.receiver === 'object') {
+      receiverId = String(msg.receiver._id || msg.receiver.id || (msg.receiver as any).userId || '').trim();
+      receiverEmail = msg.receiver.email ? msg.receiver.email.toLowerCase().trim() : '';
+    }
+
+    if (otherId && receiverId && otherId === receiverId) return true;
+    if (otherEmail && receiverEmail && otherEmail === receiverEmail) return true;
+    if (currentId && receiverId && currentId === receiverId) return false;
+    if (currentEmail && receiverEmail && currentEmail === receiverEmail) return false;
+
+    return false;
+  };
+
+  const scrollChatToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      if (smooth) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      } else {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }
+  };
 
   const fetchDetails = async () => {
     if (!id) return;
@@ -49,6 +124,7 @@ export const RequestDetailsPage: React.FC = () => {
       const data = await getFavorRequestById(id);
       setRequest(data);
       setMessages(data.messages || []);
+      setTimeout(() => scrollChatToBottom(false), 50);
     } catch (err: any) {
       setError(err.message || 'Failed to load request details');
     } finally {
@@ -60,10 +136,12 @@ export const RequestDetailsPage: React.FC = () => {
     fetchDetails();
   }, [id]);
 
-  // Scroll chat to bottom
+  // Scroll chat messages container strictly when messages change or arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > 0) {
+      scrollChatToBottom(true);
+    }
+  }, [messages.length]);
 
   // Real-time chat socket listener
   useEffect(() => {
@@ -125,17 +203,20 @@ export const RequestDetailsPage: React.FC = () => {
     const text = messageText.trim();
     setMessageText('');
 
-    const reqUserId = typeof request?.requester === 'object' ? request.requester?._id || request.requester?.id : request?.requester;
-    const isMe = user && (user._id === reqUserId || user.id === reqUserId);
-    const receiverId = isMe
-      ? (typeof request?.helper === 'object' ? request.helper?._id : request?.helper) || 'user_aarav_2'
-      : reqUserId || 'user_priya_1';
+    const currentUserId = getEntityId(user);
+    const reqUserId = getEntityId(request?.requester);
+    const helperId = getEntityId(request?.helper);
+
+    const isRequesterUser = Boolean(currentUserId && reqUserId && currentUserId === reqUserId);
+    const receiverId = isRequesterUser
+      ? (helperId || 'user_aarav_2')
+      : (reqUserId || 'user_priya_1');
 
     const tempId = 'temp_' + Date.now();
     const optimisticMsg: Message = {
       _id: tempId,
       request: id,
-      sender: user || { _id: 'user_priya_1', name: 'You' },
+      sender: user ? { ...user, _id: currentUserId, id: currentUserId } : { _id: currentUserId, id: currentUserId, name: 'You' },
       receiver: receiverId,
       text,
       createdAt: new Date().toISOString(),
@@ -160,8 +241,12 @@ export const RequestDetailsPage: React.FC = () => {
   if (loading) return <LoadingSpinner label="Loading details & chat..." />;
   if (error || !request) return <ErrorMessage message={error || 'Request not found'} onRetry={fetchDetails} />;
 
-  const isRequester = user && request.requester && user._id === request.requester._id;
-  const isHelper = user && request.helper && user._id === request.helper._id;
+  const currentUserId = getEntityId(user);
+  const reqUserId = getEntityId(request.requester);
+  const helperUserId = getEntityId(request.helper);
+
+  const isRequester = Boolean(currentUserId && reqUserId && currentUserId === reqUserId);
+  const isHelper = Boolean(currentUserId && helperUserId && currentUserId === helperUserId);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
@@ -278,15 +363,17 @@ export const RequestDetailsPage: React.FC = () => {
             </div>
 
             {/* Messages Feed — WhatsApp Bubble Style */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#FFF7ED]/50">
+            <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#FFF7ED]/50">
               {messages.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs font-medium">
                   No messages yet. Send a greeting to coordinate help!
                 </div>
               ) : (
                 messages.map((msg, idx) => {
-                  const senderId = typeof msg.sender === 'object' ? msg.sender?._id || msg.sender?.id : msg.sender;
-                  const isMe = user && Boolean(senderId && (senderId === user._id || senderId === user.id));
+                  const otherUserObj = (user && getEntityId(user) === getEntityId(request?.requester))
+                    ? request?.helper
+                    : request?.requester;
+                  const isMe = isOutgoingMessage(msg, user, otherUserObj);
                   const senderName = isMe
                     ? (user?.name || 'You')
                     : (typeof msg.sender === 'object' && msg.sender?.name ? msg.sender.name : 'Neighbor');
@@ -322,7 +409,6 @@ export const RequestDetailsPage: React.FC = () => {
                   );
                 })
               )}
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Chat Input Bar */}

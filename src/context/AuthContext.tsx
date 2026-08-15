@@ -21,6 +21,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(localStorage.getItem('neighborly_token'));
   const [loading, setLoading] = useState<boolean>(true);
 
+  const normalizeUser = (u: any): User | null => {
+    if (!u) return null;
+    const resolvedId = u._id || u.id;
+    return {
+      ...u,
+      _id: resolvedId,
+      id: resolvedId,
+    };
+  };
+
   const fetchCurrentUser = async () => {
     let storedToken = localStorage.getItem('neighborly_token');
     
@@ -31,8 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           storedToken = demoRes.data.token;
           localStorage.setItem('neighborly_token', storedToken);
           setToken(storedToken);
-          setUser(demoRes.data.user);
-          joinUserRoom(demoRes.data.user.id);
+          const normalized = normalizeUser(demoRes.data.user);
+          setUser(normalized);
+          if (normalized?.id) joinUserRoom(normalized.id);
           setLoading(false);
           return;
         }
@@ -46,8 +57,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.get('/auth/me');
       if (res.data?.user) {
-        setUser(res.data.user);
-        joinUserRoom(res.data.user.id);
+        const normalized = normalizeUser(res.data.user);
+        setUser(normalized);
+        if (normalized?.id) joinUserRoom(normalized.id);
       }
     } catch (err) {
       console.warn('Session check failed, clearing token:', err);
@@ -68,8 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { token: newToken, user: newUser } = res.data;
     localStorage.setItem('neighborly_token', newToken);
     setToken(newToken);
-    setUser(newUser);
-    joinUserRoom(newUser.id);
+    const normalized = normalizeUser(newUser);
+    setUser(normalized);
+    if (normalized?.id) joinUserRoom(normalized.id);
   };
 
   const signupUser = async (signupData: any) => {
@@ -77,8 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { token: newToken, user: newUser } = res.data;
     localStorage.setItem('neighborly_token', newToken);
     setToken(newToken);
-    setUser(newUser);
-    joinUserRoom(newUser.id);
+    const normalized = normalizeUser(newUser);
+    setUser(normalized);
+    if (normalized?.id) joinUserRoom(normalized.id);
   };
 
   const logoutUser = () => {
@@ -90,7 +104,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUserProfile = async (profileData: any) => {
     const res = await api.put('/auth/profile', profileData);
     if (res.data?.user) {
-      setUser(res.data.user);
+      const normalized = normalizeUser(res.data.user);
+      setUser(normalized);
     }
   };
 

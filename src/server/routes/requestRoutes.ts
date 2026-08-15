@@ -16,6 +16,7 @@ const router = Router();
 
 router.get('/nearby', getNearbyRequests);
 router.get('/recommendations', protect, getRecommendations);
+router.get('/search', getRequests);
 router.get('/', getRequests);
 router.post('/', protect, createRequest);
 router.get('/:id', getRequestById);

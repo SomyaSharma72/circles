@@ -50,7 +50,82 @@ export const ChatsPage: React.FC = () => {
   const [messageText, setMessageText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const getEntityId = (entity: any): string => {
+    if (!entity) return '';
+    if (typeof entity === 'string') return entity;
+    return String(entity._id || entity.id || '');
+  };
+
+  const isOutgoingMessage = (
+    msg: Message,
+    currentUser: any,
+    otherUser?: any
+  ): boolean => {
+    if (!msg) return false;
+
+    const currentId = currentUser ? String(currentUser._id || currentUser.id || '').trim() : '';
+    const currentEmail = currentUser?.email ? currentUser.email.toLowerCase().trim() : '';
+    const currentName = currentUser?.name ? currentUser.name.toLowerCase().trim() : '';
+
+    const otherId = otherUser ? String(otherUser._id || otherUser.id || '').trim() : '';
+    const otherEmail = otherUser?.email ? otherUser.email.toLowerCase().trim() : '';
+    const otherName = otherUser?.name ? otherUser.name.toLowerCase().trim() : '';
+
+    // Extract sender identifiers
+    let senderId = '';
+    let senderEmail = '';
+    let senderName = '';
+
+    if (typeof msg.sender === 'string') {
+      senderId = msg.sender.trim();
+    } else if (msg.sender && typeof msg.sender === 'object') {
+      senderId = String(msg.sender._id || msg.sender.id || (msg.sender as any).userId || '').trim();
+      senderEmail = msg.sender.email ? msg.sender.email.toLowerCase().trim() : '';
+      senderName = msg.sender.name ? msg.sender.name.toLowerCase().trim() : '';
+    }
+
+    // 1. Definite match against neighbor / otherUser -> Incoming from neighbor (false)
+    if (otherId && senderId && otherId === senderId) return false;
+    if (otherEmail && senderEmail && otherEmail === senderEmail) return false;
+    if (otherName && senderName && otherName === senderName && otherName !== currentName) return false;
+
+    // 2. Direct match against authenticated currentUser -> Outgoing (true)
+    if (currentId && senderId && currentId === senderId) return true;
+    if (currentEmail && senderEmail && currentEmail === senderEmail) return true;
+    if (currentName && senderName && currentName === senderName && senderName !== otherName) return true;
+
+    // 3. Fallback check via receiver field
+    let receiverId = '';
+    let receiverEmail = '';
+    if (typeof msg.receiver === 'string') {
+      receiverId = msg.receiver.trim();
+    } else if (msg.receiver && typeof msg.receiver === 'object') {
+      receiverId = String(msg.receiver._id || msg.receiver.id || (msg.receiver as any).userId || '').trim();
+      receiverEmail = msg.receiver.email ? msg.receiver.email.toLowerCase().trim() : '';
+    }
+
+    if (otherId && receiverId && otherId === receiverId) return true;
+    if (otherEmail && receiverEmail && otherEmail === receiverEmail) return true;
+    if (currentId && receiverId && currentId === receiverId) return false;
+    if (currentEmail && receiverEmail && currentEmail === receiverEmail) return false;
+
+    return false;
+  };
+
+  const scrollChatToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      if (smooth) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      } else {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }
+  };
 
   // Redirect if not logged in
   useEffect(() => {
@@ -92,20 +167,19 @@ export const ChatsPage: React.FC = () => {
                   const fetchedUser = await getUserById(initialUserId);
                   if (fetchedUser) otherUserObj = fetchedUser;
                 } catch (e) {
-                  // Fallback demo user
+                  // Fallback
                 }
               }
 
               if (!otherUserObj) {
                 otherUserObj = {
-                  _id: initialUserId || 'user_priya_1',
+                  _id: initialUserId || 'user_neighbor',
                   name: searchParams.get('name') || 'Neighbor',
                   avatarUrl:
                     searchParams.get('avatar') ||
                     'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
                   trustScore: 98,
-                  neighborhood: 'Sector 62, Noida',
-                  distance: '120 m away',
+                  neighborhood: 'Local Neighborhood',
                   activeStatus: 'Online now',
                 };
               }
@@ -129,15 +203,37 @@ export const ChatsPage: React.FC = () => {
               convosList = [newConvo, ...convosList.filter((c) => c.requestId !== reqData._id)];
               setSelectedReqId(initialReqId);
               setActiveConversation(newConvo);
-            } else if (convosList.length > 0) {
-              setSelectedReqId(convosList[0].requestId);
-              setActiveConversation(convosList[0]);
             }
           } catch (e) {
-            if (convosList.length > 0) {
-              setSelectedReqId(convosList[0].requestId);
-              setActiveConversation(convosList[0]);
-            }
+            console.warn('Could not fetch request for convo, creating fallback for request ID:', initialReqId);
+            const userObj = {
+              _id: initialUserId || 'user_neighbor',
+              name: searchParams.get('name') || 'Neighbor',
+              avatarUrl:
+                searchParams.get('avatar') ||
+                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
+              trustScore: 95,
+              neighborhood: 'Local Neighborhood',
+              activeStatus: 'Online now',
+            };
+            const fallbackConvo: Conversation = {
+              requestId: initialReqId,
+              requestTitle: 'Neighborhood Favor Request',
+              requestCategory: 'General',
+              requestStatus: 'Open',
+              otherUser: userObj,
+              lastMessage: {
+                _id: 'init_' + initialReqId,
+                text: 'Conversation opened.',
+                sender: userObj,
+                createdAt: new Date().toISOString(),
+                read: true,
+              },
+              unreadCount: 0,
+            };
+            convosList = [fallbackConvo, ...convosList.filter((c) => c.requestId !== initialReqId)];
+            setSelectedReqId(initialReqId);
+            setActiveConversation(fallbackConvo);
           }
         }
       } else if (initialUserId) {
@@ -149,46 +245,47 @@ export const ChatsPage: React.FC = () => {
           setSelectedReqId(found.requestId);
           setActiveConversation(found);
         } else {
+          let userObj: any = null;
           try {
             const fetchedUser = await getUserById(initialUserId);
-            const userObj = fetchedUser || {
+            if (fetchedUser) userObj = fetchedUser;
+          } catch (e) {
+            // Use query params or default
+          }
+
+          if (!userObj) {
+            userObj = {
               _id: initialUserId,
               name: searchParams.get('name') || 'Neighbor',
               avatarUrl:
                 searchParams.get('avatar') ||
-                'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
               trustScore: 98,
-              neighborhood: 'Sector 62, Noida',
-              distance: '120 m away',
+              neighborhood: 'Local Neighborhood',
               activeStatus: 'Online now',
             };
-
-            const directReqId = 'req_direct_' + initialUserId;
-            const newConvo: Conversation = {
-              requestId: directReqId,
-              requestTitle: 'Direct Neighbor Connection',
-              requestCategory: 'Direct Chat',
-              requestStatus: 'Open',
-              otherUser: userObj,
-              lastMessage: {
-                _id: 'init_' + directReqId,
-                text: 'Direct conversation started.',
-                sender: userObj,
-                createdAt: new Date().toISOString(),
-                read: true,
-              },
-              unreadCount: 0,
-            };
-
-            convosList = [newConvo, ...convosList];
-            setSelectedReqId(directReqId);
-            setActiveConversation(newConvo);
-          } catch (e) {
-            if (convosList.length > 0) {
-              setSelectedReqId(convosList[0].requestId);
-              setActiveConversation(convosList[0]);
-            }
           }
+
+          const directReqId = 'req_direct_' + initialUserId;
+          const newConvo: Conversation = {
+            requestId: directReqId,
+            requestTitle: `Direct Chat with ${userObj.name}`,
+            requestCategory: 'Direct Chat',
+            requestStatus: 'Open',
+            otherUser: userObj,
+            lastMessage: {
+              _id: 'init_' + directReqId,
+              text: 'Direct conversation started.',
+              sender: userObj,
+              createdAt: new Date().toISOString(),
+              read: true,
+            },
+            unreadCount: 0,
+          };
+
+          convosList = [newConvo, ...convosList.filter((c) => c.requestId !== directReqId)];
+          setSelectedReqId(directReqId);
+          setActiveConversation(newConvo);
         }
       } else if (convosList.length > 0 && !selectedReqId) {
         setSelectedReqId(convosList[0].requestId);
@@ -228,13 +325,16 @@ export const ChatsPage: React.FC = () => {
       fetchMessages(selectedReqId);
       const found = conversations.find((c) => c.requestId === selectedReqId);
       if (found) setActiveConversation(found);
+      setTimeout(() => scrollChatToBottom(false), 50);
     }
   }, [selectedReqId, conversations]);
 
-  // Scroll to bottom on new messages
+  // Scroll chat messages container strictly when messages change or arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > 0) {
+      scrollChatToBottom(true);
+    }
+  }, [messages.length]);
 
   // Socket Room Join & Listener
   useEffect(() => {
@@ -292,13 +392,14 @@ export const ChatsPage: React.FC = () => {
     const text = messageText.trim();
     setMessageText('');
 
-    const receiverId = activeConversation?.otherUser?._id || activeConversation?.otherUser?.id;
+    const currentUserId = getEntityId(user);
+    const receiverId = getEntityId(activeConversation?.otherUser);
     const tempId = 'temp_' + Date.now();
 
     const optimisticMsg: Message = {
       _id: tempId,
       request: selectedReqId,
-      sender: user || { _id: 'user_priya_1', name: 'You' },
+      sender: user ? { ...user, _id: currentUserId, id: currentUserId } : { _id: currentUserId, id: currentUserId, name: 'You' },
       receiver: activeConversation?.otherUser,
       text,
       createdAt: new Date().toISOString(),
@@ -608,7 +709,7 @@ export const ChatsPage: React.FC = () => {
                 </div>
 
                 {/* Messages Feed */}
-                <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#FAF3E9]/60">
+                <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#FAF3E9]/60">
                   {loadingMsgs ? (
                     <div className="py-12 flex justify-center">
                       <LoadingSpinner label="Loading chat history..." />
@@ -620,15 +721,13 @@ export const ChatsPage: React.FC = () => {
                     </div>
                   ) : (
                     messages.map((msg, idx) => {
-                      const senderId =
-                        typeof msg.sender === 'object' ? msg.sender?._id || msg.sender?.id : msg.sender;
-                      const isMe = user && Boolean(senderId && (senderId === user._id || senderId === user.id));
+                      const isMe = isOutgoingMessage(msg, user, activeConversation?.otherUser);
 
                       const senderName = isMe
                         ? user?.name || 'You'
                         : typeof msg.sender === 'object' && msg.sender?.name
                         ? msg.sender.name
-                        : activeConversation.otherUser?.name || 'Neighbor';
+                        : activeConversation?.otherUser?.name || 'Neighbor';
 
                       return (
                         <div
@@ -662,7 +761,6 @@ export const ChatsPage: React.FC = () => {
                       );
                     })
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Chat Input Bar */}

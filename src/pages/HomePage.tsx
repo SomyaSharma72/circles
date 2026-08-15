@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { getFavorRequests, getCommunityMetrics, searchFavorRequests } from '../services/api';
+import { getFavorRequests, getCommunityMetrics, searchFavorRequests, searchNeighbors } from '../services/api';
 import { FavorRequest, CommunityMetrics } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -41,6 +41,7 @@ import {
   Coffee,
   Sun,
   Flame,
+  X,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
@@ -50,6 +51,7 @@ export const HomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearchTerm, setActiveSearchTerm] = useState('');
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -78,21 +80,7 @@ export const HomePage: React.FC = () => {
   // Trusted Neighbors with realistic response times and human details
   const trustedNeighbors = [
     {
-      id: 'char_priya',
-      name: 'Priya Singh',
-      role: 'Pet Sitting • Math Tutoring • Repairs',
-      rating: 4.8,
-      reviewsCount: 23,
-      favorsCount: 19,
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=250',
-      badge: 'Circle Leader',
-      responseTime: 'Usually replies in 5 mins',
-      activeStatus: 'Active 2 min ago',
-      recentNote: 'Riya can lend a cake stand or baking mixer this weekend.',
-      mutuals: 12,
-    },
-    {
-      id: 'char_aarav',
+      id: 'user_aarav_2',
       name: 'Aarav Patel',
       role: 'Scooter Repair • Bosch Drill • Jumpstart',
       rating: 4.9,
@@ -102,24 +90,40 @@ export const HomePage: React.FC = () => {
       badge: 'Super Helper',
       responseTime: 'Replies in ~10 mins',
       activeStatus: 'Online now',
-      recentNote: 'Uncle Sharma needs help carrying groceries upstairs.',
+      recentNote: 'Available to lend battery jumper cables or heavy Bosch drill.',
       mutuals: 18,
     },
     {
-      id: 'char_ananya',
-      name: 'Ananya Sharma',
-      role: 'Physics & Math • Plant Care',
+      id: 'user_ananya_4',
+      name: 'Ananya Iyer',
+      role: 'Wi-Fi & Tech • Home Baking • Plant Care',
+      rating: 4.9,
+      reviewsCount: 22,
+      favorsCount: 19,
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
+      badge: 'Circle Leader',
+      responseTime: 'Usually replies in 5 mins',
+      activeStatus: 'Active 2 min ago',
+      recentNote: 'Can help troubleshoot mesh Wi-Fi routers or lend baking mixer.',
+      mutuals: 12,
+    },
+    {
+      id: 'user_rohan_3',
+      name: 'Rohan Gupta',
+      role: 'Dog Walking • Heavy Lifting • Moving Help',
       rating: 4.7,
       reviewsCount: 18,
       favorsCount: 15,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=250',
       badge: 'Trusted Neighbor',
       responseTime: 'Replies in ~15 mins',
       activeStatus: 'Seen 10 min ago',
-      recentNote: 'Aman is available for physics tutoring tonight.',
+      recentNote: 'Available for evening dog walks or moving assistance.',
       mutuals: 8,
     },
   ];
+
+  const [displayedNeighbors, setDisplayedNeighbors] = useState(trustedNeighbors);
 
   // Local community bulletin groups
   const communityGroups = [
@@ -167,23 +171,93 @@ export const HomePage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchCommunityData();
+    if (!activeSearchTerm) {
+      fetchCommunityData();
+    }
   }, [selectedCategory]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
+    const query = searchQuery.trim();
+    if (!query) {
+      handleClearSearch();
+      return;
+    }
+
+    setActiveSearchTerm(query);
     setIsAiSearching(true);
-    searchFavorRequests(searchQuery)
-      .then((res) => {
-        setRequests(res);
-      })
-      .catch((err) => {
-        console.error('Search error:', err);
-      })
-      .finally(() => {
-        setIsAiSearching(false);
+
+    try {
+      const q = query.toLowerCase();
+      const [reqResults, neighborResults] = await Promise.allSettled([
+        searchFavorRequests(query),
+        searchNeighbors(query),
+      ]);
+
+      if (reqResults.status === 'fulfilled' && Array.isArray(reqResults.value)) {
+        setRequests(reqResults.value);
+      }
+
+      // Filter local trustedNeighbors
+      const localMatched = trustedNeighbors.filter(
+        (n) =>
+          n.name.toLowerCase().includes(q) ||
+          n.role.toLowerCase().includes(q) ||
+          n.recentNote.toLowerCase().includes(q) ||
+          n.badge.toLowerCase().includes(q)
+      );
+
+      // Merge API neighbor results
+      const apiUsers =
+        neighborResults.status === 'fulfilled' && Array.isArray(neighborResults.value)
+          ? neighborResults.value
+          : [];
+
+      const formattedApiNeighbors = apiUsers.map((u: any) => {
+        const uId = u._id || u.id;
+        const existing = trustedNeighbors.find((tn) => tn.id === uId);
+        if (existing) return existing;
+
+        const skillsStr = Array.isArray(u.skills) && u.skills.length > 0 ? u.skills.join(' • ') : '';
+        const role = u.profession ? (skillsStr ? `${u.profession} • ${skillsStr}` : u.profession) : (skillsStr || 'Neighbor');
+
+        return {
+          id: uId,
+          name: u.name,
+          role,
+          rating: u.trustScore || 4.8,
+          reviewsCount: u.completedFavors ? u.completedFavors * 2 : 12,
+          favorsCount: u.completedFavors || 10,
+          avatar: u.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
+          badge: u.trustScore >= 4.9 ? 'Super Helper' : 'Verified Neighbor',
+          responseTime: 'Replies in ~10 mins',
+          activeStatus: 'Active in circle',
+          recentNote: u.bio || `Available to help with ${u.skills?.join(', ') || 'community favors'}.`,
+          mutuals: 8,
+        };
       });
+
+      const mergedMap = new Map();
+      localMatched.forEach((n) => mergedMap.set(n.id, n));
+      formattedApiNeighbors.forEach((n: any) => {
+        if (!mergedMap.has(n.id)) {
+          mergedMap.set(n.id, n);
+        }
+      });
+
+      setDisplayedNeighbors(Array.from(mergedMap.values()));
+    } catch (err: any) {
+      console.error('Search error:', err);
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setActiveSearchTerm('');
+    fetchCommunityData();
+    setDisplayedNeighbors(trustedNeighbors);
   };
 
   // Real-time socket events
@@ -242,9 +316,19 @@ export const HomePage: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search for help (e.g., drill, math tutor, dog walking)..."
-                    className="w-full pl-12 pr-28 py-3.5 bg-[#FBFAF7] text-[#2F2F2F] rounded-full text-xs sm:text-sm font-semibold placeholder:text-slate-400 border border-[#E6DFD3] focus:outline-hidden focus:border-[#C96C4A] shadow-2xs"
+                    placeholder="Search neighbors, skills, tags, or favor requests (e.g. drill, tutor, Aarav)..."
+                    className="w-full pl-12 pr-32 py-3.5 bg-[#FBFAF7] text-[#2F2F2F] rounded-full text-xs sm:text-sm font-semibold placeholder:text-slate-400 border border-[#E6DFD3] focus:outline-hidden focus:border-[#C96C4A] shadow-2xs"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="absolute right-24 p-1 text-slate-400 hover:text-slate-600 transition"
+                      title="Clear search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     type="submit"
                     className="absolute right-2 px-4 py-2 bg-[#C96C4A] hover:bg-[#b25b3a] text-white text-xs font-extrabold rounded-full transition shadow-2xs"
@@ -253,6 +337,21 @@ export const HomePage: React.FC = () => {
                   </button>
                 </div>
               </form>
+
+              {activeSearchTerm && (
+                <div className="flex items-center justify-between gap-2 p-3 bg-[#FBFAF7] border border-[#E6DFD3] rounded-2xl text-xs font-semibold text-[#2F2F2F]">
+                  <span>
+                    Searching for <strong className="text-[#C96C4A]">"{activeSearchTerm}"</strong> ({displayedNeighbors.length} neighbors, {requests.length} asks)
+                  </span>
+                  <button
+                    onClick={handleClearSearch}
+                    className="text-[11px] font-bold text-[#C96C4A] hover:underline flex items-center gap-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Reset Filter</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Right Living Scene with Animated Illustrated Characters & Speech Bubbles */}
@@ -299,7 +398,10 @@ export const HomePage: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Quick Action 1: Browse Favors */}
           <button
-            onClick={() => setSelectedCategory('All')}
+            onClick={() => {
+              setSelectedCategory('All');
+              if (activeSearchTerm) handleClearSearch();
+            }}
             className="bg-[#FBFAF7] border border-[#E6DFD3] p-4 rounded-3xl hover:border-[#355E3B] transition shadow-2xs hover:shadow-xs group flex items-center gap-3 text-left"
           >
             <div className="w-11 h-11 rounded-full bg-[#355E3B] text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
@@ -360,10 +462,12 @@ export const HomePage: React.FC = () => {
         <div className="flex items-center justify-between px-1">
           <div>
             <h2 className="text-xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
-              Trusted Neighbors in Sector 62
+              {activeSearchTerm ? 'Matching Neighbors' : 'Trusted Neighbors in Sector 62'}
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              Real people with active response times and mutual connections
+              {activeSearchTerm
+                ? `Neighbors matching "${activeSearchTerm}" by name, skills, tags, or services`
+                : 'Real people with active response times and mutual connections'}
             </p>
           </div>
           <Link to="/leaderboard" className="text-xs font-bold text-[#C96C4A] hover:underline flex items-center gap-1">
@@ -372,70 +476,76 @@ export const HomePage: React.FC = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          {trustedNeighbors.map((neighbor, idx) => (
-            <motion.div
-              key={neighbor.id}
-              whileHover={{ y: -3 }}
-              transition={{ duration: 0.15 }}
-              className={`bg-[#FBFAF7] rounded-[2rem] p-5 border border-[#E6DFD3] shadow-2xs space-y-4 flex flex-col justify-between hover:border-[#355E3B] transition ${
-                idx === 1 ? 'md:translate-y-2' : ''
-              }`}
-            >
-              <div className="space-y-3">
-                {/* Avatar & Badge */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <img
-                        src={neighbor.avatar}
-                        alt={neighbor.name}
-                        className="w-12 h-12 rounded-full object-cover ring-2 ring-[#355E3B]"
-                      />
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+        {displayedNeighbors.length === 0 ? (
+          <div className="p-8 text-center bg-[#FBFAF7] rounded-[2rem] border border-[#E6DFD3] text-xs font-semibold text-slate-500">
+            No neighbors found matching "{activeSearchTerm}". Try searching for another skill, tag, or name.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+            {displayedNeighbors.map((neighbor, idx) => (
+              <motion.div
+                key={neighbor.id}
+                whileHover={{ y: -3 }}
+                transition={{ duration: 0.15 }}
+                className={`bg-[#FBFAF7] rounded-[2rem] p-5 border border-[#E6DFD3] shadow-2xs space-y-4 flex flex-col justify-between hover:border-[#355E3B] transition ${
+                  idx === 1 ? 'md:translate-y-2' : ''
+                }`}
+              >
+                <div className="space-y-3">
+                  {/* Avatar & Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <img
+                          src={neighbor.avatar}
+                          alt={neighbor.name}
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-[#355E3B]"
+                        />
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm text-[#2F2F2F]">{neighbor.name}</h3>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 bg-[#355E3B]/10 text-[#355E3B] rounded-full inline-block mt-0.5">
+                          {neighbor.badge}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-extrabold text-sm text-[#2F2F2F]">{neighbor.name}</h3>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 bg-[#355E3B]/10 text-[#355E3B] rounded-full inline-block mt-0.5">
-                        {neighbor.badge}
-                      </span>
+
+                    <div className="flex items-center gap-1 text-xs font-extrabold text-amber-500 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      <span>{neighbor.rating}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs font-extrabold text-amber-500 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
-                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    <span>{neighbor.rating}</span>
+                  <p className="text-xs font-semibold text-slate-600 leading-tight">{neighbor.role}</p>
+
+                  {/* Real Community Detail Bubble */}
+                  <div className="bg-[#F5F1E8] p-3 rounded-2xl border border-[#E6DFD3]/80 text-xs text-[#2F2F2F] space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                      <span>{neighbor.responseTime}</span>
+                      <span className="text-emerald-700 font-extrabold">{neighbor.activeStatus}</span>
+                    </div>
+                    <p className="text-[11px] font-medium leading-relaxed italic">
+                      "{neighbor.recentNote}"
+                    </p>
                   </div>
                 </div>
 
-                <p className="text-xs font-semibold text-slate-600 leading-tight">{neighbor.role}</p>
-
-                {/* Real Community Detail Bubble */}
-                <div className="bg-[#F5F1E8] p-3 rounded-2xl border border-[#E6DFD3]/80 text-xs text-[#2F2F2F] space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
-                    <span>{neighbor.responseTime}</span>
-                    <span className="text-emerald-700 font-extrabold">{neighbor.activeStatus}</span>
-                  </div>
-                  <p className="text-[11px] font-medium leading-relaxed italic">
-                    "{neighbor.recentNote}"
-                  </p>
+                <div className="pt-2 flex items-center justify-between text-xs border-t border-[#E6DFD3]">
+                  <span className="font-bold text-[#355E3B] text-[11px]">
+                    {neighbor.mutuals} mutual connections
+                  </span>
+                  <Link
+                    to={`/chats?user=${neighbor.id}&name=${encodeURIComponent(neighbor.name)}&avatar=${encodeURIComponent(neighbor.avatar)}`}
+                    className="px-3.5 py-1.5 bg-[#355E3B] hover:bg-[#2c4e31] text-white text-[11px] font-bold rounded-full transition shadow-2xs"
+                  >
+                    Message
+                  </Link>
                 </div>
-              </div>
-
-              <div className="pt-2 flex items-center justify-between text-xs border-t border-[#E6DFD3]">
-                <span className="font-bold text-[#355E3B] text-[11px]">
-                  {neighbor.mutuals} mutual connections
-                </span>
-                <Link
-                  to={`/chats?user=${neighbor.id}&name=${encodeURIComponent(neighbor.name)}&avatar=${encodeURIComponent(neighbor.avatar)}`}
-                  className="px-3.5 py-1.5 bg-[#355E3B] hover:bg-[#2c4e31] text-white text-[11px] font-bold rounded-full transition shadow-2xs"
-                >
-                  Message
-                </Link>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Circular Category Chips */}

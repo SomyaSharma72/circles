@@ -36,7 +36,7 @@ export const getCommunityMetrics = async () => {
 };
 
 export const searchFavorRequests = async (query: string) => {
-  const res = await api.get('/requests/search', { params: { query } });
+  const res = await api.get('/requests/search', { params: { search: query, query } });
   return res.data;
 };
 
@@ -77,6 +77,16 @@ export const sendMessage = async (requestId: string, text: string, receiverId?: 
 
 export const getUserById = async (userId: string) => {
   const res = await api.get(`/auth/user/${userId}`);
+  return res.data;
+};
+
+export const searchNeighbors = async (query: string) => {
+  const res = await api.get('/auth/neighbors/search', { params: { query, search: query } });
+  return res.data;
+};
+
+export const getAllNeighbors = async () => {
+  const res = await api.get('/auth/neighbors');
   return res.data;
 };
 

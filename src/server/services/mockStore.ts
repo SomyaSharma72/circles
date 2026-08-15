@@ -134,6 +134,36 @@ class MockStore {
       location: { type: 'Point', coordinates: [72.8295, 19.0596] },
       createdAt: new Date(Date.now() - 60 * 86400000),
     },
+    {
+      _id: 'user_vikram_5',
+      name: 'Vikram Malhotra',
+      email: 'vikram@neighborly.app',
+      passwordHash: DEMO_PASSWORD_HASH,
+      bio: 'Sports coach and youth mentor in Defense Colony. Happy to help neighbors with sports equipment, fitness coaching, and emergency childcare.',
+      neighborhood: 'Defense Colony, Bengaluru',
+      profession: 'Youth Sports Director',
+      skills: ['Childcare & Sports', 'Emergency Rides', 'First Aid'],
+      trustScore: 96,
+      completedFavors: 16,
+      avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=250',
+      location: { type: 'Point', coordinates: [77.6520, 12.9895] },
+      createdAt: new Date(Date.now() - 50 * 86400000),
+    },
+    {
+      _id: 'user_meera_6',
+      name: 'Meera Kapoor',
+      email: 'meera@neighborly.app',
+      passwordHash: DEMO_PASSWORD_HASH,
+      bio: 'High school math and physics tutor. Love hosting weekend study circles and lending academic textbooks and science kits.',
+      neighborhood: 'Jayanagar 3rd Block, Bengaluru',
+      profession: 'Educator & Academic Coach',
+      skills: ['Math & Physics Tutoring', 'Study Circle Facilitation', 'Book Exchange'],
+      trustScore: 97,
+      completedFavors: 25,
+      avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=250',
+      location: { type: 'Point', coordinates: [77.6320, 12.9710] },
+      createdAt: new Date(Date.now() - 70 * 86400000),
+    },
   ];
 
   public requests: MockFavorRequest[] = [
@@ -378,17 +408,42 @@ class MockStore {
       result = result.filter((r) => r.urgency.toLowerCase() === filter.urgency!.toLowerCase());
     }
     if (filter?.search) {
-      const q = filter.search.toLowerCase();
+      const q = filter.search.toLowerCase().trim();
       result = result.filter(
         (r) =>
           r.title.toLowerCase().includes(q) ||
           r.description.toLowerCase().includes(q) ||
           r.summary.toLowerCase().includes(q) ||
+          r.category.toLowerCase().includes(q) ||
+          (typeof r.requester === 'object' && r.requester?.name?.toLowerCase().includes(q)) ||
           r.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
 
     return result;
+  }
+
+  public searchNeighbors(query: string = ''): MockUser[] {
+    const q = query.toLowerCase().trim();
+    if (!q) {
+      return this.users.map(({ passwordHash, ...u }) => ({
+        ...u,
+        id: u._id,
+      } as any));
+    }
+    return this.users
+      .filter((u) => {
+        const matchName = u.name.toLowerCase().includes(q);
+        const matchBio = u.bio?.toLowerCase().includes(q);
+        const matchNeighborhood = u.neighborhood?.toLowerCase().includes(q);
+        const matchProfession = u.profession?.toLowerCase().includes(q);
+        const matchSkills = u.skills?.some((s) => s.toLowerCase().includes(q));
+        return Boolean(matchName || matchBio || matchNeighborhood || matchProfession || matchSkills);
+      })
+      .map(({ passwordHash, ...u }) => ({
+        ...u,
+        id: u._id,
+      } as any));
   }
 
   public findRequestById(id: string): MockFavorRequest | undefined {

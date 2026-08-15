@@ -419,7 +419,7 @@ export const AreaScanPage: React.FC = () => {
                 </div>
 
                 <Link
-                  to={`/chats?user=${selectedCharacter.userId}&request=${selectedCharacter.requestId || 'req_jumpstart_101'}&name=${encodeURIComponent(selectedCharacter.name)}&avatar=${encodeURIComponent(selectedCharacter.avatar)}`}
+                  to={`/chats?user=${selectedCharacter.userId}&name=${encodeURIComponent(selectedCharacter.name)}&avatar=${encodeURIComponent(selectedCharacter.avatar)}`}
                   className="w-full py-2.5 bg-[#C96C4A] hover:bg-[#b05a3b] text-white font-extrabold text-xs rounded-2xl transition shadow-xs flex items-center justify-center gap-2"
                 >
                   <MessageSquare className="w-4 h-4" />
