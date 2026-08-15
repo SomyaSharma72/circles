@@ -102,3 +102,15 @@ export interface CommunityMetrics {
   uniqueSkillsShared: number;
   averageCommunityRating: number;
 }
+
+export interface GeocodedLocation {
+  lat: number;
+  lng: number;
+  neighborhood: string;
+  fullAddress: string;
+  city: string;
+  state?: string;
+  country?: string;
+  timestamp: number;
+  source: 'gps' | 'cache' | 'fallback' | 'custom';
+}

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createFavorRequest } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLocationContext } from '../context/LocationContext';
 import {
   Sparkles,
   AlertTriangle,
@@ -9,18 +10,29 @@ import {
   ArrowRight,
   Heart,
   MapPin,
+  Crosshair,
 } from 'lucide-react';
 
 export const CreateRequestPage: React.FC = () => {
   const { user } = useAuth();
+  const { location } = useLocationContext();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [locationName, setLocationName] = useState(user?.neighborhood || 'Sector 62, Noida');
-  const [coordinates, setCoordinates] = useState<[number, number]>(
-    user?.location?.coordinates || [77.6408, 12.9784]
+  const [locationName, setLocationName] = useState(
+    user?.neighborhood || location.fullAddress || location.neighborhood || 'Local Circle'
   );
+  const [coordinates, setCoordinates] = useState<[number, number]>(
+    user?.location?.coordinates || [location.lng, location.lat]
+  );
+
+  useEffect(() => {
+    if (!user?.neighborhood && location.neighborhood && locationName === 'Local Circle') {
+      setLocationName(location.fullAddress || location.neighborhood);
+      setCoordinates([location.lng, location.lat]);
+    }
+  }, [location, user, locationName]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,14 +117,29 @@ export const CreateRequestPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-[#2F2F2F] uppercase tracking-wider mb-2">
-                Neighborhood / Area
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-[#2F2F2F] uppercase tracking-wider">
+                  Neighborhood / Area
+                </label>
+                {location.neighborhood && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocationName(location.fullAddress || location.neighborhood);
+                      setCoordinates([location.lng, location.lat]);
+                    }}
+                    className="text-[11px] font-bold text-[#C96C4A] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    <span>Use live GPS</span>
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 value={locationName}
                 onChange={(e) => setLocationName(e.target.value)}
-                placeholder="e.g. Sector 62, Noida"
+                placeholder="e.g. Indiranagar, Bengaluru or Bandra West"
                 className="w-full px-4 py-3 bg-[#F5F1E8]/60 border border-[#E6DFD3] rounded-2xl text-sm text-[#2F2F2F] focus:outline-hidden focus:border-[#C96C4A] focus:bg-white transition font-medium"
               />
             </div>

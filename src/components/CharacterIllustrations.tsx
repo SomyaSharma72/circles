@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { useLocationContext } from '../context/LocationContext';
 
 // Character 1: Neighbor walking a happy dog
 export const CharacterDogWalker: React.FC<{ className?: string }> = ({ className = 'w-24 h-24' }) => {
@@ -190,8 +191,11 @@ export const CircleAvatarStack: React.FC<{
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120',
     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=120',
   ],
-  countText = '+42 active in Sector 62',
+  countText,
 }) => {
+  const { location } = useLocationContext();
+  const displayCount = countText || `+42 active in ${location.neighborhood || 'your circle'}`;
+
   return (
     <div className="inline-flex items-center gap-2">
       <div className="flex -space-x-3 overflow-hidden">
@@ -206,8 +210,9 @@ export const CircleAvatarStack: React.FC<{
         ))}
       </div>
       <span className="text-xs font-semibold text-[#2F2F2F]/80 tracking-tight">
-        {countText}
+        {displayCount}
       </span>
     </div>
   );
 };
+

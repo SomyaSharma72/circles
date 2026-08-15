@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   PlusCircle,
   MapPin,
@@ -12,13 +12,18 @@ import {
   ShieldCheck,
   Compass,
   MessageSquare,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocketContext } from '../context/SocketContext';
+import { useLocationContext } from '../context/LocationContext';
+import { LocationPickerModal } from './LocationPickerModal';
 
 export const Navbar: React.FC = () => {
   const { user, login, logout } = useAuth();
   const { isReconnecting } = useSocketContext();
+  const { location: circleLocation, isDetecting } = useLocationContext();
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,6 +41,8 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
+      <LocationPickerModal isOpen={isPickerOpen} onClose={() => setIsPickerOpen(false)} />
+
       {/* Top Header Bar */}
       <header className="sticky top-0 z-40 bg-[#FBFAF7]/90 backdrop-blur-md border-b border-[#E6DFD3] px-4 sm:px-8 py-3 flex items-center justify-between shadow-2xs">
         {/* Reconnecting Alert */}
@@ -66,13 +73,25 @@ export const Navbar: React.FC = () => {
           </Link>
 
           {/* Location Picker Pill */}
-          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-[#F5F1E8] hover:bg-[#E6DFD3] rounded-full text-xs font-bold text-[#2F2F2F] cursor-pointer transition border border-[#E6DFD3] shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-[#355E3B] animate-pulse"></span>
+          <button
+            type="button"
+            onClick={() => setIsPickerOpen(true)}
+            className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-[#F5F1E8] hover:bg-[#E6DFD3] rounded-full text-xs font-bold text-[#2F2F2F] cursor-pointer transition border border-[#E6DFD3] shadow-2xs group text-left"
+            title="Click to view or change your circle location"
+          >
+            {isDetecting ? (
+              <RefreshCw className="w-3 h-3 text-[#355E3B] animate-spin shrink-0" />
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-[#355E3B] animate-pulse shrink-0"></span>
+            )}
             <MapPin className="w-3.5 h-3.5 text-[#C96C4A] shrink-0" />
-            <span className="truncate max-w-[140px]">Sector 62, Noida</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </div>
+            <span className="truncate max-w-[160px]">
+              {isDetecting ? 'Detecting neighborhood...' : circleLocation.fullAddress || circleLocation.neighborhood}
+            </span>
+            <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition shrink-0" />
+          </button>
         </div>
+
 
         {/* Right Action Bar */}
         <div className="flex items-center gap-2 sm:gap-3">

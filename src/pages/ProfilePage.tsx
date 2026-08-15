@@ -4,6 +4,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Review } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { useLocationContext } from '../context/LocationContext';
 import {
   ShieldCheck,
   Star,
@@ -13,20 +14,23 @@ import {
   Plus,
   ArrowLeft,
   Award,
+  MapPin,
+  Crosshair,
 } from 'lucide-react';
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfile, loading: authLoading } = useAuth();
+  const { location } = useLocationContext();
   const navigate = useNavigate();
 
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
-  const [neighborhood, setNeighborhood] = useState(user?.neighborhood || '');
+  const [neighborhood, setNeighborhood] = useState(user?.neighborhood || location.neighborhood || '');
   const [profession, setProfession] = useState(user?.profession || '');
   const [skills, setSkills] = useState<string[]>(user?.skills || ['Pet Sitting', 'Tutoring', 'Repairs']);
   const [newSkill, setNewSkill] = useState('');
   const [coordinates, setCoordinates] = useState<[number, number]>(
-    user?.location?.coordinates || [77.6408, 12.9784]
+    user?.location?.coordinates || [location.lng, location.lat]
   );
 
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -167,7 +171,7 @@ export const ProfilePage: React.FC = () => {
 
           <div className="space-y-1">
             <h1 className="text-2xl font-extrabold text-white tracking-tight font-heading">{name || 'Priya Singh'}</h1>
-            <p className="text-xs text-[#FBFAF7]/80 font-semibold">{neighborhood || 'Sector 62, Noida'}</p>
+            <p className="text-xs text-[#FBFAF7]/80 font-semibold">{neighborhood || location.neighborhood || 'Local Circle'}</p>
           </div>
 
           {/* Skill Pills */}
@@ -286,12 +290,27 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider mb-1">Neighborhood Area</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider">Neighborhood Area</label>
+              {location.neighborhood && location.neighborhood !== neighborhood && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNeighborhood(location.neighborhood);
+                    setCoordinates([location.lng, location.lat]);
+                  }}
+                  className="text-[11px] font-bold text-[#C96C4A] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span>Use detected location ({location.neighborhood})</span>
+                </button>
+              )}
+            </div>
             <input
               type="text"
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
-              placeholder="e.g. Sector 62, Noida"
+              placeholder="e.g. Indiranagar, Bengaluru or Bandra West, Mumbai"
               className="w-full px-3.5 py-2.5 bg-[#F5F1E8] border border-[#E6DFD3] rounded-2xl text-xs font-semibold focus:outline-hidden focus:border-[#C96C4A]"
             />
           </div>

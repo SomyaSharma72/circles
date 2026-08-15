@@ -3,6 +3,7 @@ import api from '../services/api';
 import { User, CommunityMetrics } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { useLocationContext } from '../context/LocationContext';
 import {
   Trophy,
   ShieldCheck,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 export const LeaderboardPage: React.FC = () => {
+  const { location } = useLocationContext();
   const [leaderboard, setLeaderboard] = useState<User[]>([]);
   const [metrics, setMetrics] = useState<CommunityMetrics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,7 @@ export const LeaderboardPage: React.FC = () => {
           Most Helpful Neighbors
         </h1>
         <p className="text-slate-600 text-xs sm:text-sm font-medium leading-relaxed max-w-2xl">
-          Verified neighbors who lend tools, offer tutoring, share pet care, and build real community trust in Sector 62 & surrounding blocks.
+          Verified neighbors who lend tools, offer tutoring, share pet care, and build real community trust in {location.neighborhood || 'your circle'} & surrounding blocks.
         </p>
       </div>
 
@@ -145,7 +147,7 @@ export const LeaderboardPage: React.FC = () => {
                       {rank === 0 && <span className="text-[10px] text-[#355E3B] bg-[#355E3B]/10 px-2.5 py-0.5 rounded-full font-bold">🏆 Circle Host</span>}
                     </h3>
                     <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#C96C4A]" /> {user.neighborhood || 'Sector 62'} • {user.profession}
+                      <MapPin className="w-3 h-3 text-[#C96C4A]" /> {user.neighborhood || location.neighborhood || 'Local Circle'} • {user.profession}
                     </p>
                   </div>
                 </div>

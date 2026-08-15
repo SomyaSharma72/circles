@@ -1,7 +1,10 @@
 import React from 'react';
-import { ShieldCheck, Heart } from 'lucide-react';
+import { ShieldCheck, Heart, MapPin } from 'lucide-react';
+import { useLocationContext } from '../context/LocationContext';
 
 export const Footer: React.FC = () => {
+  const { location } = useLocationContext();
+
   return (
     <footer className="bg-[#FBFAF7] text-[#2F2F2F]/80 text-sm border-t border-[#E6DFD3] mt-16 relative z-10 pb-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -32,8 +35,14 @@ export const Footer: React.FC = () => {
         <div>
           <h4 className="text-[#2F2F2F] text-xs font-extrabold uppercase tracking-wider mb-3">Active Circles</h4>
           <ul className="space-y-1.5 text-xs text-slate-600 font-medium">
-            <li>• Sector 62 & 18, Noida</li>
+            {location.neighborhood && (
+              <li className="text-[#355E3B] font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#355E3B] animate-pulse"></span>
+                <span>{location.neighborhood} (Your Circle)</span>
+              </li>
+            )}
             <li>• Indiranagar 100ft Rd, Bengaluru</li>
+            <li>• Bandra West, Mumbai</li>
             <li>• Koramangala 5th Block</li>
             <li>• Hauz Khas & GK1, New Delhi</li>
           </ul>

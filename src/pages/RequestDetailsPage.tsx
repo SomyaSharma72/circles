@@ -11,6 +11,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { useAuth } from '../context/AuthContext';
 import { useSocketContext } from '../context/SocketContext';
+import { useLocationContext } from '../context/LocationContext';
 import {
   MapPin,
   Clock,
@@ -29,6 +30,7 @@ export const RequestDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { socket } = useSocketContext();
+  const { location } = useLocationContext();
 
   const [request, setRequest] = useState<FavorRequest | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -307,7 +309,7 @@ export const RequestDetailsPage: React.FC = () => {
 
               <div className="text-[11px] text-slate-500 font-medium space-y-1 pt-2 border-t border-orange-200/40">
                 <p className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-orange-500" /> Location: {request.locationName || 'Indiranagar'}
+                  <MapPin className="w-3.5 h-3.5 text-orange-500" /> Location: {request.locationName || location.fullAddress || location.neighborhood || 'Local Circle'}
                 </p>
                 <p className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-slate-400" /> Posted 15m ago

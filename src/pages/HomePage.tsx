@@ -6,8 +6,10 @@ import { FavorRequest, CommunityMetrics } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { EmptyState } from '../components/EmptyState';
+import { ComingSoonCircleCard } from '../components/ComingSoonCircleCard';
 import { useSocketContext } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
+import { useLocationContext } from '../context/LocationContext';
 import {
   CharacterDogWalker,
   CharacterToolShare,
@@ -58,6 +60,7 @@ export const HomePage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { socket } = useSocketContext();
+  const { location: circleLocation } = useLocationContext();
 
   const categoryOptions = [
     { name: 'All', icon: Sparkles, color: 'bg-[#355E3B] text-white' },
@@ -124,31 +127,6 @@ export const HomePage: React.FC = () => {
   ];
 
   const [displayedNeighbors, setDisplayedNeighbors] = useState(trustedNeighbors);
-
-  // Local community bulletin groups
-  const communityGroups = [
-    {
-      title: 'Sector 62 Plant & Garden Swaps',
-      members: 48,
-      description: 'Exchange saplings, organic soil, and watering favors when travelling.',
-      activeToday: '3 new posts today',
-      icon: '🌱',
-    },
-    {
-      title: 'Parenting & Childcare Circle',
-      members: 62,
-      description: 'Shared carpooling for school pickups and trusted babysitting swaps.',
-      activeToday: '5 active requests',
-      icon: '👶',
-    },
-    {
-      title: 'Tool Library & Hardware Club',
-      members: 89,
-      description: 'Don’t buy tools you only use once. Borrow drills, ladders & lawnmowers.',
-      activeToday: '12 items lent this week',
-      icon: '🛠️',
-    },
-  ];
 
   const fetchCommunityData = async () => {
     try {
@@ -291,7 +269,9 @@ export const HomePage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#FBFAF7] rounded-full border border-[#E6DFD3] text-xs font-bold text-[#2F2F2F]">
               <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" />
-              <span>Good morning, {user?.name || 'Priya'}! ☀️ Sector 62 Circle is active</span>
+              <span>
+                Good morning, {user?.name || 'Neighbor'}! ☀️ {circleLocation.neighborhood || 'Local'} Circle is active
+              </span>
             </div>
 
             <CircleAvatarStack />
@@ -462,7 +442,7 @@ export const HomePage: React.FC = () => {
         <div className="flex items-center justify-between px-1">
           <div>
             <h2 className="text-xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
-              {activeSearchTerm ? 'Matching Neighbors' : 'Trusted Neighbors in Sector 62'}
+              {activeSearchTerm ? 'Matching Neighbors' : `Trusted Neighbors in ${circleLocation.neighborhood || 'Your Circle'}`}
             </h2>
             <p className="text-xs text-slate-500 font-medium">
               {activeSearchTerm
@@ -648,7 +628,7 @@ export const HomePage: React.FC = () => {
                 <div className="pt-4 mt-3 border-t border-[#E6DFD3] flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px]">
                     <MapPin className="w-3.5 h-3.5 text-[#C96C4A]" />
-                    <span>{req.locationName || 'Sector 62, Noida'}</span>
+                    <span>{req.locationName || circleLocation.fullAddress || circleLocation.neighborhood}</span>
                   </div>
 
                   <Link
@@ -665,47 +645,9 @@ export const HomePage: React.FC = () => {
         )}
       </div>
 
-      {/* Community Groups & Local Clubs Cards */}
-      <div className="space-y-4 pt-4 border-t border-[#E6DFD3]">
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <h2 className="text-xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
-              Active Circle Groups
-            </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              Join local interest circles in Sector 62
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {communityGroups.map((grp, idx) => (
-            <div
-              key={idx}
-              className="bg-[#F5F1E8] rounded-[2rem] p-5 border border-[#E6DFD3] shadow-2xs space-y-3 flex flex-col justify-between"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl">{grp.icon}</span>
-                  <span className="text-[10px] font-extrabold text-[#355E3B] bg-white px-2.5 py-1 rounded-full border border-[#E6DFD3]">
-                    {grp.members} members
-                  </span>
-                </div>
-                <h3 className="font-extrabold text-sm text-[#2F2F2F]">{grp.title}</h3>
-                <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                  {grp.description}
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-[#E6DFD3] flex items-center justify-between text-xs">
-                <span className="text-[10px] font-bold text-slate-500">{grp.activeToday}</span>
-                <button className="px-3 py-1 bg-white hover:bg-[#E6DFD3] text-[#2F2F2F] font-bold text-[11px] rounded-full border border-[#E6DFD3] transition">
-                  Join Circle
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Active Circle Groups - Interactive Roadmap Card */}
+      <div className="pt-4 border-t border-[#E6DFD3]">
+        <ComingSoonCircleCard />
       </div>
     </div>
   );

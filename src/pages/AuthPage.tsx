@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, AlertCircle, Zap, UserCheck } from 'lucide-react';
+import { useLocationContext } from '../context/LocationContext';
+import { MapPin, AlertCircle, Zap, UserCheck, Crosshair } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
   const { login, signup, user } = useAuth();
+  const { location, refreshLocation, isDetecting } = useLocationContext();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -15,11 +17,18 @@ export const AuthPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [neighborhood, setNeighborhood] = useState('');
+  const [neighborhood, setNeighborhood] = useState(location.neighborhood || '');
   const [profession, setProfession] = useState('');
   const [skillsInput, setSkillsInput] = useState('');
-  const [coordinates, setCoordinates] = useState<[number, number]>([77.6408, 12.9784]);
+  const [coordinates, setCoordinates] = useState<[number, number]>([location.lng, location.lat]);
   const [locating, setLocating] = useState(false);
+
+  useEffect(() => {
+    if (!neighborhood && location.neighborhood) {
+      setNeighborhood(location.neighborhood);
+      setCoordinates([location.lng, location.lat]);
+    }
+  }, [location]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -253,7 +262,7 @@ export const AuthPage: React.FC = () => {
                     type="text"
                     value={neighborhood}
                     onChange={(e) => setNeighborhood(e.target.value)}
-                    placeholder="e.g. Sector 62, Noida"
+                    placeholder="e.g. Indiranagar, Bengaluru or Bandra West"
                     className="w-full px-3 py-2 bg-[#F5F1E8] border border-[#E6DFD3] rounded-2xl text-xs font-medium focus:outline-hidden focus:border-[#C96C4A]"
                   />
                 </div>

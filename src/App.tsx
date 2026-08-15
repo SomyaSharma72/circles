@@ -2,8 +2,10 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { LocationProvider } from './context/LocationContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
+import { LocationPermissionBanner } from './components/LocationPermissionBanner';
 
 import { HomePage } from './pages/HomePage';
 import { AreaScanPage } from './pages/AreaScanPage';
@@ -20,31 +22,35 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 export function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <SocketProvider>
-          <ErrorBoundary>
-            <div className="min-h-screen bg-[#FBFAF7] text-[#2F2F2F] flex flex-col font-sans selection:bg-[#355E3B] selection:text-white relative overflow-x-hidden">
-              <Navbar />
-              <main className="flex-1 relative z-10 pb-20">
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/area-scan" element={<AreaScanPage />} />
-                  <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/create-request" element={<CreateRequestPage />} />
-                  <Route path="/request/:id" element={<RequestDetailsPage />} />
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/leaderboard" element={<LeaderboardPage />} />
-                  <Route path="/chats" element={<ChatsPage />} />
-                </Routes>
-              </main>
-              <Footer />
-            </div>
-          </ErrorBoundary>
-        </SocketProvider>
-      </AuthProvider>
+      <LocationProvider>
+        <AuthProvider>
+          <SocketProvider>
+            <ErrorBoundary>
+              <div className="min-h-screen bg-[#FBFAF7] text-[#2F2F2F] flex flex-col font-sans selection:bg-[#355E3B] selection:text-white relative overflow-x-hidden">
+                <LocationPermissionBanner />
+                <Navbar />
+                <main className="flex-1 relative z-10 pb-20">
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/area-scan" element={<AreaScanPage />} />
+                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/create-request" element={<CreateRequestPage />} />
+                    <Route path="/request/:id" element={<RequestDetailsPage />} />
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/leaderboard" element={<LeaderboardPage />} />
+                    <Route path="/chats" element={<ChatsPage />} />
+                  </Routes>
+                </main>
+                <Footer />
+              </div>
+            </ErrorBoundary>
+          </SocketProvider>
+        </AuthProvider>
+      </LocationProvider>
     </BrowserRouter>
   );
 }
 
 export default App;
+

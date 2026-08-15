@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getFavorRequests } from '../services/api';
 import { FavorRequest } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { useSocketContext } from '../context/SocketContext';
+import { useLocationContext } from '../context/LocationContext';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  getCurrentGpsPosition,
   calculateDistanceInMeters,
   formatDistance,
-  getCachedLocation,
   Coordinates,
 } from '../utils/location';
 import {
@@ -29,6 +28,7 @@ import {
   Crosshair,
   Clock,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 
 interface NeighborPin {
@@ -51,13 +51,12 @@ interface NeighborPin {
 }
 
 export const AreaScanPage: React.FC = () => {
-  const [coords, setCoords] = useState<Coordinates>(getCachedLocation());
-  const [gpsStatus, setGpsStatus] = useState<'locating' | 'active' | 'cached'>('cached');
+  const { location, refreshLocation, isDetecting } = useLocationContext();
   const [radiusMiles, setRadiusMiles] = useState(1);
   const [activeCategory, setActiveCategory] = useState('All');
 
-  // Base Neighbor Pins with relative lat/lng around Indiranagar / Sector 62
-  const basePins: NeighborPin[] = [
+  // Base Neighbor Pin templates positioned relative to user's current live location
+  const basePins: NeighborPin[] = useMemo(() => [
     {
       id: 'pin_priya',
       userId: 'user_priya_1',
@@ -69,9 +68,9 @@ export const AreaScanPage: React.FC = () => {
       rating: 4.9,
       trustScore: 98,
       avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
-      lat: 12.9791,
-      lng: 77.6415,
-      neighborhood: 'Indiranagar 100ft Road',
+      lat: location.lat + 0.0012,
+      lng: location.lng + 0.0008,
+      neighborhood: location.neighborhood || 'Local Circle',
       activeStatus: 'Online now',
       x: -120,
       y: -80,
@@ -87,9 +86,9 @@ export const AreaScanPage: React.FC = () => {
       rating: 4.8,
       trustScore: 95,
       avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
-      lat: 12.9815,
-      lng: 77.6432,
-      neighborhood: 'Koramangala 4th Block',
+      lat: location.lat + 0.0028,
+      lng: location.lng + 0.0021,
+      neighborhood: location.neighborhood ? `${location.neighborhood} North` : 'Nearby Circle',
       activeStatus: 'Active 5m ago',
       x: 110,
       y: -95,
@@ -105,9 +104,9 @@ export const AreaScanPage: React.FC = () => {
       rating: 4.7,
       trustScore: 92,
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200',
-      lat: 12.9860,
-      lng: 77.6485,
-      neighborhood: 'Hiranandani, Powai',
+      lat: location.lat - 0.0031,
+      lng: location.lng + 0.0035,
+      neighborhood: location.neighborhood ? `${location.neighborhood} East` : 'East Block',
       activeStatus: 'Active 12m ago',
       x: 130,
       y: 85,
@@ -123,9 +122,9 @@ export const AreaScanPage: React.FC = () => {
       rating: 4.9,
       trustScore: 99,
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-      lat: 12.9752,
-      lng: 77.6385,
-      neighborhood: 'Bandra West',
+      lat: location.lat - 0.0018,
+      lng: location.lng - 0.0015,
+      neighborhood: location.neighborhood ? `${location.neighborhood} South` : 'South Block',
       activeStatus: 'Online now',
       x: -100,
       y: 110,
@@ -141,9 +140,9 @@ export const AreaScanPage: React.FC = () => {
       rating: 4.9,
       trustScore: 96,
       avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=200',
-      lat: 12.9895,
-      lng: 77.6520,
-      neighborhood: 'Defense Colony',
+      lat: location.lat + 0.0045,
+      lng: location.lng - 0.0012,
+      neighborhood: location.neighborhood ? `${location.neighborhood} West` : 'West Block',
       activeStatus: 'Active 20m ago',
       x: 10,
       y: -145,
@@ -159,39 +158,35 @@ export const AreaScanPage: React.FC = () => {
       rating: 4.8,
       trustScore: 97,
       avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200',
-      lat: 12.9710,
-      lng: 77.6320,
-      neighborhood: 'Jayanagar 3rd Block',
+      lat: location.lat - 0.0042,
+      lng: location.lng - 0.0038,
+      neighborhood: location.neighborhood ? `${location.neighborhood} Central` : 'Central Circle',
       activeStatus: 'Online now',
       x: 95,
       y: 155,
     },
-  ];
+  ], [location.lat, location.lng, location.neighborhood]);
 
-  const [selectedCharacter, setSelectedCharacter] = useState<NeighborPin | null>(basePins[0]);
-
-  // Request High Accuracy GPS Location on mount
-  const handleRequestGps = async () => {
-    setGpsStatus('locating');
-    const pos = await getCurrentGpsPosition();
-    setCoords(pos);
-    setGpsStatus('active');
-  };
+  const [selectedCharacter, setSelectedCharacter] = useState<NeighborPin | null>(null);
 
   useEffect(() => {
-    handleRequestGps();
-  }, []);
+    if (basePins.length > 0 && !selectedCharacter) {
+      setSelectedCharacter(basePins[0]);
+    }
+  }, [basePins, selectedCharacter]);
 
   // Compute calculated distance string for each pin based on live coords
-  const neighborPins = basePins.map((pin) => {
-    const meters = calculateDistanceInMeters(coords.lat, coords.lng, pin.lat, pin.lng);
-    const distanceFormatted = formatDistance(meters);
-    return {
-      ...pin,
-      distanceFormatted,
-      meters,
-    };
-  });
+  const neighborPins = useMemo(() => {
+    return basePins.map((pin) => {
+      const meters = calculateDistanceInMeters(location.lat, location.lng, pin.lat, pin.lng);
+      const distanceFormatted = formatDistance(meters);
+      return {
+        ...pin,
+        distanceFormatted,
+        meters,
+      };
+    });
+  }, [basePins, location.lat, location.lng]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -202,13 +197,13 @@ export const AreaScanPage: React.FC = () => {
             <MapPin className="w-5 h-5 text-[#C96C4A]" />
             <div>
               <h1 className="text-lg font-extrabold text-[#2F2F2F] font-heading">
-                Indiranagar & Nearby Circles
+                {location.neighborhood || 'Local Circle'} & Nearby Circles
               </h1>
               <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
-                <span>GPS Coords: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</span>
+                <span>GPS Coords: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.2 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                  High-Precision GPS
+                  {location.source === 'gps' ? 'High-Precision GPS' : 'Live Circle'}
                 </span>
               </p>
             </div>
@@ -216,12 +211,18 @@ export const AreaScanPage: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleRequestGps}
-              className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-800 text-xs font-bold rounded-full border border-orange-200 transition flex items-center gap-1"
+              onClick={() => refreshLocation()}
+              disabled={isDetecting}
+              className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-800 text-xs font-bold rounded-full border border-orange-200 transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
             >
-              <Crosshair className="w-3.5 h-3.5 text-orange-500" />
-              <span>{gpsStatus === 'locating' ? 'Locating...' : 'Recalibrate GPS'}</span>
+              {isDetecting ? (
+                <RefreshCw className="w-3.5 h-3.5 text-orange-500 animate-spin" />
+              ) : (
+                <Crosshair className="w-3.5 h-3.5 text-orange-500" />
+              )}
+              <span>{isDetecting ? 'Locating...' : 'Recalibrate GPS'}</span>
             </button>
+
 
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200">
               {[1, 3, 5].map((m) => (
