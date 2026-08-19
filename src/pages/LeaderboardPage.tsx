@@ -4,6 +4,7 @@ import { User, CommunityMetrics } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { useLocationContext } from '../context/LocationContext';
+import { UserAvatar } from '../components/UserAvatar';
 import {
   Trophy,
   ShieldCheck,
@@ -137,9 +138,11 @@ export const LeaderboardPage: React.FC = () => {
                   </div>
 
                   {/* Avatar & Name */}
-                  <div className="w-10 h-10 rounded-full bg-[#355E3B] text-white font-extrabold flex items-center justify-center text-sm shrink-0 border border-[#355E3B]">
-                    {user.name.charAt(0)}
-                  </div>
+                  <UserAvatar
+                    userId={user._id || user.id}
+                    name={user.name}
+                    size="md"
+                  />
 
                   <div>
                     <h3 className="font-extrabold text-[#2F2F2F] text-sm flex items-center gap-2 font-heading">

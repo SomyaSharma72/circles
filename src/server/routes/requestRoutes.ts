@@ -7,6 +7,7 @@ import {
   getRequestById,
   acceptRequest,
   completeRequest,
+  updateRequestStatus,
   matchSkills,
 } from '../controllers/requestController';
 import { getMessagesByRequest, sendMessage } from '../controllers/messageController';
@@ -21,7 +22,9 @@ router.get('/', getRequests);
 router.post('/', protect, createRequest);
 router.get('/:id', getRequestById);
 router.post('/:id/accept', protect, acceptRequest);
+router.post('/:id/respond', protect, acceptRequest);
 router.post('/:id/complete', protect, completeRequest);
+router.patch('/:id/status', protect, updateRequestStatus);
 router.get('/:id/match-skills', matchSkills);
 router.get('/:id/messages', protect, getMessagesByRequest);
 router.post('/:id/messages', protect, sendMessage);

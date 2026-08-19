@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { FavorRequest } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useLocationContext } from '../context/LocationContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { EmptyState } from '../components/EmptyState';
+import { UserAvatar } from '../components/UserAvatar';
 import {
   ShieldCheck,
   HeartHandshake,
@@ -18,6 +20,7 @@ import {
 
 export const DashboardPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
+  const { location } = useLocationContext();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'my_requests' | 'my_helping' | 'ai_recommendations'>('my_requests');
@@ -75,13 +78,15 @@ export const DashboardPage: React.FC = () => {
       {/* Profile Header Banner */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-orange-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-orange-500 text-white font-extrabold text-2xl flex items-center justify-center border-2 border-orange-400 shadow-md shadow-orange-500/20">
-            {user.name.charAt(0)}
-          </div>
+          <UserAvatar
+            userId={user.id || (user as any)._id}
+            name={user.name}
+            size="lg"
+          />
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{user.name}</h1>
             <p className="text-xs font-semibold text-slate-500 flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3.5 h-3.5 text-orange-500" /> {user.neighborhood || 'Indiranagar'} • {user.profession}
+              <MapPin className="w-3.5 h-3.5 text-orange-500" /> {user.neighborhood || location.neighborhood || 'Local Circle'} • {user.profession}
             </p>
             <div className="flex items-center gap-2 mt-2">
               <span className="inline-flex items-center gap-1 px-3 py-0.5 bg-orange-50 text-orange-800 border border-orange-200 rounded-full text-xs font-bold">

@@ -63,6 +63,22 @@ export const initSocket = (server: any, corsOrigin: string) => {
       }
     });
 
+    // Group Chat Rooms
+    socket.on('group:join', (payload: any) => {
+      const groupId = typeof payload === 'object' ? payload?.groupId : payload;
+      if (groupId) {
+        socket.join(`group:${groupId}`);
+        console.log(`Socket ${socket.id} joined group room: group:${groupId}`);
+      }
+    });
+
+    socket.on('group:leave', (payload: any) => {
+      const groupId = typeof payload === 'object' ? payload?.groupId : payload;
+      if (groupId) {
+        socket.leave(`group:${groupId}`);
+      }
+    });
+
     // Area Scan Room Join
     socket.on('area_scan:join', ({ lat, lng }: { lat: number; lng: number }) => {
       if (typeof lat === 'number' && typeof lng === 'number') {

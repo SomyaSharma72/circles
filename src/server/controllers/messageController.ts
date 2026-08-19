@@ -138,6 +138,32 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Check if either user has blocked the other
+    if (isDBConnected()) {
+      try {
+        const User = mongoose.model('User');
+        const senderDoc: any = await User.findById(userId);
+        const receiverDoc: any = await User.findById(receiverId);
+
+        if (senderDoc?.blockedUsers?.some((b: any) => b?.toString() === receiverId?.toString())) {
+          return res.status(403).json({ error: 'You have blocked this neighbor. Unblock them to send messages.' });
+        }
+        if (receiverDoc?.blockedUsers?.some((b: any) => b?.toString() === userId?.toString())) {
+          return res.status(403).json({ error: 'You cannot send messages to this neighbor.' });
+        }
+      } catch (checkErr) {
+        console.warn('Block check error in DB:', checkErr);
+      }
+    }
+
+    if (mockStore.isUserBlocked(userId, receiverId)) {
+      const isBlockedByMe = mockStore.findUserById(userId)?.blockedUsers?.includes(receiverId);
+      if (isBlockedByMe) {
+        return res.status(403).json({ error: 'You have blocked this neighbor. Unblock them to send messages.' });
+      }
+      return res.status(403).json({ error: 'You cannot send messages to this neighbor.' });
+    }
+
     if (isDBConnected()) {
       try {
         const message = await Message.create({

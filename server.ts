@@ -13,6 +13,7 @@ import skillRoutes from './src/server/routes/skillRoutes';
 import reviewRoutes from './src/server/routes/reviewRoutes';
 import messageRoutes from './src/server/routes/messageRoutes';
 import leaderboardRoutes from './src/server/routes/leaderboardRoutes';
+import groupRoutes from './src/server/routes/groupRoutes';
 
 dotenv.config();
 
@@ -51,6 +52,8 @@ async function startServer() {
   app.use('/api/skills', skillRoutes);
   app.use('/api/reviews', reviewRoutes);
   app.use('/api/messages', messageRoutes);
+  app.use('/api/groups', groupRoutes);
+  app.use('/api/circles', groupRoutes);
   app.use('/api/leaderboard', leaderboardRoutes);
 
   // Serve Frontend via Vite Middleware or Production Static Assets

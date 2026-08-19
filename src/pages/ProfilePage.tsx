@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../services/api';
+import api, { unblockUser, getBlockedUsers } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Review } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useLocationContext } from '../context/LocationContext';
+import { UserAvatar } from '../components/UserAvatar';
 import {
   ShieldCheck,
   Star,
@@ -13,17 +14,21 @@ import {
   Save,
   Plus,
   ArrowLeft,
-  Award,
   MapPin,
-  Crosshair,
+  Ban,
+  Unlock,
+  User,
+  HeartHandshake,
 } from 'lucide-react';
 
 export const ProfilePage: React.FC = () => {
-  const { user, updateProfile, loading: authLoading } = useAuth();
+  const { user, login, updateProfile, loading: authLoading } = useAuth();
   const { location } = useLocationContext();
   const navigate = useNavigate();
 
   const [name, setName] = useState(user?.name || '');
+  const [age, setAge] = useState(user?.age ? String(user.age) : '');
+  const [gender, setGender] = useState(user?.gender || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [neighborhood, setNeighborhood] = useState(user?.neighborhood || location.neighborhood || '');
   const [profession, setProfession] = useState(user?.profession || '');
@@ -34,11 +39,12 @@ export const ProfilePage: React.FC = () => {
   );
 
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [blockedUsersList, setBlockedUsersList] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock static reviews for rich display
+  // Default reviews fallback
   const defaultMockReviews = [
     {
       _id: 'rev_mock_1',
@@ -54,13 +60,6 @@ export const ProfilePage: React.FC = () => {
       comment: 'Great tutoring session! Very patient and helpful.',
       date: 'Jun 18, 2023',
     },
-    {
-      _id: 'rev_mock_3',
-      reviewer: { name: 'Ananya Sharma', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150' },
-      rating: 4,
-      comment: 'Helped mount curtain rods in 20 mins. Super trustworthy neighbor.',
-      date: 'Jul 2, 2023',
-    },
   ];
 
   useEffect(() => {
@@ -72,6 +71,8 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (user) {
       setName(user.name || '');
+      setAge(user.age ? String(user.age) : '');
+      setGender(user.gender || '');
       setBio(user.bio || '');
       setNeighborhood(user.neighborhood || '');
       setProfession(user.profession || '');
@@ -85,20 +86,47 @@ export const ProfilePage: React.FC = () => {
   const fetchUserReviews = async () => {
     if (!user) return;
     try {
-      const res = await api.get(`/reviews/user/${user.id}`);
+      const res = await api.get(`/reviews/user/${user.id || user._id}`);
       if (res.data && res.data.length > 0) {
         setReviews(res.data);
       }
     } catch (err) {
-      console.warn('Reviews fetch error:', err);
+      console.warn('Reviews fetch notice:', err);
+    }
+  };
+
+  const fetchBlockedList = async () => {
+    if (!user) return;
+    try {
+      const list = await getBlockedUsers();
+      setBlockedUsersList(list || []);
+    } catch (err) {
+      console.warn('Blocked users fetch notice:', err);
     }
   };
 
   useEffect(() => {
     if (user) {
       fetchUserReviews();
+      fetchBlockedList();
     }
-  }, [user?.id]);
+  }, [user?.id, user?._id]);
+
+  const handleUnblock = async (blockedId: string) => {
+    try {
+      await unblockUser(blockedId);
+      setBlockedUsersList((prev) => prev.filter((u) => (u._id || u.id) !== blockedId));
+      if (user) {
+        const updatedBlocked = (user.blockedUsers || []).filter((id) => id !== blockedId);
+        login(localStorage.getItem('neighborly_token') || '', {
+          ...user,
+          blockedUsers: updatedBlocked,
+        });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to unblock user');
+    }
+  };
 
   if (authLoading) {
     return <LoadingSpinner label="Verifying circle session..." />;
@@ -126,13 +154,16 @@ export const ProfilePage: React.FC = () => {
     setSavedSuccess(false);
 
     try {
-      await updateProfile({
+      const updatedUser = await updateProfile({
         name,
+        age: age ? Number(age) : undefined,
+        gender: gender || undefined,
         bio,
         neighborhood,
         profession,
         skills,
         coordinates,
+        profileCompleted: true,
       });
       setSavedSuccess(true);
     } catch (err: any) {
@@ -145,9 +176,8 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* Forest Green Circles Profile Header */}
+      {/* Profile Header */}
       <div className="bg-[#355E3B] text-white rounded-[2.5rem] p-6 sm:p-8 shadow-xs relative overflow-hidden space-y-6 text-center">
-        {/* Top bar with back arrow */}
         <div className="flex items-center justify-between">
           <Link to="/" className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition">
             <ArrowLeft className="w-5 h-5" />
@@ -159,10 +189,10 @@ export const ProfilePage: React.FC = () => {
         {/* Avatar Portrait */}
         <div className="flex flex-col items-center space-y-3">
           <div className="relative">
-            <img
-              src={user.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=250'}
-              alt={name}
-              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-2xs"
+            <UserAvatar
+              userId={user._id || user.id}
+              name={name || user.name}
+              size="lg"
             />
             <div className="absolute bottom-0 right-0 w-7 h-7 bg-[#C96C4A] text-white rounded-full flex items-center justify-center border-2 border-white shadow-2xs">
               <ShieldCheck className="w-4 h-4" />
@@ -170,8 +200,15 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           <div className="space-y-1">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight font-heading">{name || 'Priya Singh'}</h1>
-            <p className="text-xs text-[#FBFAF7]/80 font-semibold">{neighborhood || location.neighborhood || 'Local Circle'}</p>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight font-heading">{name || 'Neighbor'}</h1>
+            <p className="text-xs text-[#FBFAF7]/80 font-semibold">
+              {profession ? `${profession} • ` : ''}{neighborhood || location.neighborhood || 'Local Circle'}
+            </p>
+            {(age || gender) && (
+              <p className="text-[11px] text-[#FBFAF7]/70 font-medium">
+                {age ? `${age} yrs old` : ''} {age && gender ? '•' : ''} {gender || ''}
+              </p>
+            )}
           </div>
 
           {/* Skill Pills */}
@@ -187,23 +224,52 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Prominent Star Rating Card on Top */}
+        {/* Star Rating Card */}
         <div className="bg-[#FBFAF7] text-[#2F2F2F] rounded-2xl p-4 shadow-2xs flex items-center justify-center gap-3 max-w-sm mx-auto">
           <div className="flex items-center gap-1 text-amber-500">
             {[1, 2, 3, 4, 5].map((star) => (
               <Star key={star} className="w-5 h-5 fill-amber-400 text-amber-400" />
             ))}
           </div>
-          <span className="font-extrabold text-xl text-[#2F2F2F]">4.8</span>
-          <span className="text-xs text-slate-500 font-bold">• 23 Reviews</span>
+          <span className="font-extrabold text-xl text-[#2F2F2F]">★ {user.trustScore ?? 100}</span>
+          <span className="text-xs text-slate-500 font-bold">• {user.completedFavors ?? 19} favors</span>
         </div>
       </div>
 
-      {/* Completed Favors Counter */}
-      <div className="bg-[#FBFAF7] rounded-3xl p-4 border border-[#E6DFD3] shadow-2xs flex items-center justify-between">
-        <span className="font-extrabold text-sm text-[#2F2F2F]">Completed Circle Favors</span>
-        <span className="font-extrabold text-sm text-[#355E3B] bg-[#355E3B]/10 px-4 py-1 rounded-full border border-[#355E3B]/20">19 favors</span>
-      </div>
+      {/* Blocked Users Section (if any blocked) */}
+      {blockedUsersList.length > 0 && (
+        <div className="bg-red-50/70 border border-red-200 rounded-3xl p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-red-900 flex items-center gap-1.5">
+              <Ban className="w-4 h-4 text-red-600" />
+              <span>Blocked Neighbors ({blockedUsersList.length})</span>
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {blockedUsersList.map((blocked) => (
+              <div key={blocked._id || blocked.id} className="flex items-center justify-between p-3 bg-white rounded-2xl border border-red-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-red-100 text-red-700 font-bold flex items-center justify-center text-xs">
+                    {blocked.name?.charAt(0) || 'U'}
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-900">{blocked.name}</h5>
+                    <p className="text-[10px] text-slate-500">{blocked.neighborhood || 'Neighbor'}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleUnblock(blocked._id || blocked.id)}
+                  className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 transition flex items-center gap-1"
+                >
+                  <Unlock className="w-3 h-3" />
+                  <span>Unblock</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Reviews List */}
       <div className="space-y-3">
@@ -217,14 +283,14 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <img
-                    src={rev.reviewer?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150'}
-                    alt="Reviewer"
-                    className="w-10 h-10 rounded-full object-cover border border-[#E6DFD3]"
+                  <UserAvatar
+                    userId={rev.reviewer?._id || rev.reviewer?.id || rev.reviewer?.name}
+                    name={rev.reviewer?.name || 'Neighbor'}
+                    size="sm"
                   />
                   <div>
                     <h4 className="font-extrabold text-sm text-[#2F2F2F]">{rev.reviewer?.name || 'Neighbor'}</h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">{rev.date || 'Jun 7, 2023'}</span>
+                    <span className="text-[10px] text-slate-400 font-semibold">{rev.date || 'Recent Favor'}</span>
                   </div>
                 </div>
 
@@ -265,7 +331,7 @@ export const ProfilePage: React.FC = () => {
         )}
 
         <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider mb-1">Full Name</label>
               <input
@@ -278,15 +344,43 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider mb-1">Profession</label>
+              <label className="block text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider mb-1">Age</label>
               <input
-                type="text"
-                value={profession}
-                onChange={(e) => setProfession(e.target.value)}
-                placeholder="e.g. Mechanic, Teacher, Software Dev"
+                type="number"
+                min={13}
+                max={120}
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder="e.g. 28"
                 className="w-full px-3.5 py-2.5 bg-[#F5F1E8] border border-[#E6DFD3] rounded-2xl text-xs font-semibold focus:outline-hidden focus:border-[#C96C4A]"
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider mb-1">Gender</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-[#F5F1E8] border border-[#E6DFD3] rounded-2xl text-xs font-semibold focus:outline-hidden focus:border-[#C96C4A]"
+              >
+                <option value="">Prefer not to say</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Non-binary">Non-binary</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-extrabold text-[#2F2F2F] uppercase tracking-wider mb-1">Profession / Role</label>
+            <input
+              type="text"
+              value={profession}
+              onChange={(e) => setProfession(e.target.value)}
+              placeholder="e.g. Mechanic, Teacher, Software Dev"
+              className="w-full px-3.5 py-2.5 bg-[#F5F1E8] border border-[#E6DFD3] rounded-2xl text-xs font-semibold focus:outline-hidden focus:border-[#C96C4A]"
+            />
           </div>
 
           <div>
@@ -332,7 +426,7 @@ export const ProfilePage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleAddSkill}
-                className="px-4 py-2 bg-[#C96C4A] hover:bg-[#b25b3a] text-white rounded-full text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                className="px-4 py-2 bg-[#C96C4A] hover:bg-[#b25b3a] text-white rounded-full text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Add
               </button>
@@ -360,7 +454,7 @@ export const ProfilePage: React.FC = () => {
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-3.5 bg-[#355E3B] hover:bg-[#2c4e31] text-white font-extrabold text-xs rounded-full shadow-2xs transition flex items-center justify-center gap-2 disabled:opacity-50 mt-4"
+            className="w-full py-3.5 bg-[#355E3B] hover:bg-[#2c4e31] text-white font-extrabold text-xs rounded-full shadow-2xs transition flex items-center justify-center gap-2 disabled:opacity-50 mt-4 cursor-pointer"
           >
             <Save className="w-4 h-4" />
             <span>{saving ? 'Saving Changes...' : 'Save Profile Changes'}</span>

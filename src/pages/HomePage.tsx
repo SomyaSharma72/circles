@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { getFavorRequests, getCommunityMetrics, searchFavorRequests, searchNeighbors } from '../services/api';
+import { getFavorRequests, getCommunityMetrics, searchFavorRequests, searchNeighbors, getCircles } from '../services/api';
 import { FavorRequest, CommunityMetrics } from '../types';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { EmptyState } from '../components/EmptyState';
-import { ComingSoonCircleCard } from '../components/ComingSoonCircleCard';
+import { UserAvatar } from '../components/UserAvatar';
+import { CircleIconBadge } from '../components/CircleIcons';
 import { useSocketContext } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocationContext } from '../context/LocationContext';
@@ -49,6 +50,7 @@ import {
 export const HomePage: React.FC = () => {
   const [requests, setRequests] = useState<FavorRequest[]>([]);
   const [metrics, setMetrics] = useState<CommunityMetrics | null>(null);
+  const [previewCircles, setPreviewCircles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,15 +134,19 @@ export const HomePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [reqData, metricData] = await Promise.all([
+      const [reqData, metricData, circlesData] = await Promise.all([
         getFavorRequests({
           category: selectedCategory === 'All' ? undefined : selectedCategory,
         }),
         getCommunityMetrics(),
+        getCircles().catch(() => []),
       ]);
 
       setRequests(reqData);
       setMetrics(metricData);
+      if (Array.isArray(circlesData)) {
+        setPreviewCircles(circlesData.slice(0, 4));
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load community feed');
     } finally {
@@ -248,6 +254,10 @@ export const HomePage: React.FC = () => {
 
     socket.on('requestUpdated', (updatedReq: FavorRequest) => {
       setRequests((prev) => prev.map((r) => (r._id === updatedReq._id ? updatedReq : r)));
+    });
+
+    socket.on('circle:created', (newCircle: any) => {
+      setPreviewCircles((prev) => [newCircle, ...prev.filter((c) => c._id !== newCircle._id)].slice(0, 4));
     });
 
     return () => {
@@ -476,12 +486,8 @@ export const HomePage: React.FC = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img
-                          src={neighbor.avatar}
-                          alt={neighbor.name}
-                          className="w-12 h-12 rounded-full object-cover ring-2 ring-[#355E3B]"
-                        />
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                        <UserAvatar userId={neighbor.id} name={neighbor.name} size="md" />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
                       </div>
                       <div>
                         <h3 className="font-extrabold text-sm text-[#2F2F2F]">{neighbor.name}</h3>
@@ -598,9 +604,11 @@ export const HomePage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#355E3B] text-white font-extrabold flex items-center justify-center text-xs shadow-2xs">
-                        {req.requester?.name ? req.requester.name.charAt(0).toUpperCase() : 'N'}
-                      </div>
+                      <UserAvatar
+                        userId={req.requester?._id || req.requester?.id}
+                        name={req.requester?.name || 'Neighbor'}
+                        size="sm"
+                      />
                       <div>
                         <span className="font-extrabold text-[#2F2F2F] text-sm block">
                           {req.requester?.name || 'Neighbor'}
@@ -645,9 +653,77 @@ export const HomePage: React.FC = () => {
         )}
       </div>
 
-      {/* Active Circle Groups - Interactive Roadmap Card */}
-      <div className="pt-4 border-t border-[#E6DFD3]">
-        <ComingSoonCircleCard />
+      {/* Active Circle Groups Section */}
+      <div className="space-y-4 pt-2 border-t border-[#E6DFD3]">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-extrabold text-[#2F2F2F] tracking-tight font-heading">
+                Active Circle Groups
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                {previewCircles.length} Active
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">
+              Join local interest rings, shared tool sheds, and activity groups in {circleLocation.neighborhood || 'your neighborhood'}
+            </p>
+          </div>
+          <Link
+            to="/circles"
+            className="text-xs font-bold text-[#355E3B] hover:underline flex items-center gap-1.5"
+          >
+            <span>Explore all circles</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {previewCircles.map((circle) => {
+            const memberCount = Array.isArray(circle.members) ? circle.members.length : 1;
+            return (
+              <Link
+                key={circle._id}
+                to={`/circles/${circle._id}`}
+                className="bg-[#FBFAF7] rounded-[2rem] p-5 border border-[#E6DFD3] hover:border-indigo-400 hover:shadow-xs transition flex flex-col justify-between group"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <CircleIconBadge
+                      iconKey={circle.icon}
+                      category={circle.category}
+                      size="sm"
+                    />
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      {circle.privacy || 'Public'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-extrabold text-sm text-[#2F2F2F] group-hover:text-indigo-900 transition leading-snug line-clamp-1 font-heading">
+                      {circle.name}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium line-clamp-2 mt-1 leading-relaxed">
+                      {circle.description || 'Neighborhood collaboration & meetups.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-[#E6DFD3] flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500 truncate max-w-[120px]">
+                    <MapPin className="w-3 h-3 text-[#C96C4A] shrink-0" />
+                    <span className="truncate">{circle.neighborhood || circleLocation.neighborhood || 'Local Circle'}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-indigo-700 font-bold text-[11px]">
+                    <Users className="w-3 h-3" />
+                    <span>{memberCount}</span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

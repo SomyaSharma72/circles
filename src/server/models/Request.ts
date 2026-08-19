@@ -9,6 +9,8 @@ export interface IFavorRequest extends Document {
   status: 'Open' | 'In Progress' | 'Completed' | 'Cancelled';
   requester: mongoose.Types.ObjectId;
   helper?: mongoose.Types.ObjectId;
+  creditsAwarded: boolean;
+  completedAt?: Date;
   summary?: string;
   isFlaggedSpam?: boolean;
   fraudReason?: string;
@@ -31,6 +33,8 @@ const FavorRequestSchema: Schema = new Schema(
     status: { type: String, enum: ['Open', 'In Progress', 'Completed', 'Cancelled'], default: 'Open' },
     requester: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     helper: { type: Schema.Types.ObjectId, ref: 'User' },
+    creditsAwarded: { type: Boolean, default: false },
+    completedAt: { type: Date },
     summary: { type: String, default: '' },
     isFlaggedSpam: { type: Boolean, default: false },
     fraudReason: { type: String, default: '' },

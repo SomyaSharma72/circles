@@ -13,9 +13,35 @@ const generateToken = (id: string, email: string) => {
 
 const isDBConnected = () => mongoose.connection.readyState === 1;
 
+export const formatUserResponse = (user: any) => {
+  const uid = user._id ? user._id.toString() : user.id;
+  const blocked = Array.isArray(user.blockedUsers)
+    ? user.blockedUsers.map((b: any) => (b && typeof b === 'object' && b._id ? b._id.toString() : b?.toString() || b))
+    : [];
+
+  return {
+    _id: uid,
+    id: uid,
+    name: user.name,
+    email: user.email,
+    bio: user.bio || '',
+    neighborhood: user.neighborhood || 'Local Neighborhood',
+    profession: user.profession || 'Neighbor',
+    age: user.age,
+    gender: user.gender || '',
+    profileCompleted: user.profileCompleted ?? (user.bio || user.skills?.length ? true : false),
+    blockedUsers: blocked,
+    skills: user.skills || [],
+    trustScore: user.trustScore ?? 100,
+    completedFavors: user.completedFavors ?? 0,
+    avatarUrl: user.avatarUrl || '',
+    location: user.location || { type: 'Point', coordinates: [-122.4194, 37.7749] },
+  };
+};
+
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, neighborhood, profession, skills, coordinates } = req.body;
+    const { name, email, password, neighborhood, profession, skills, coordinates, age, gender, avatarUrl } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -23,7 +49,7 @@ export const signup = async (req: Request, res: Response) => {
 
     if (isDBConnected()) {
       try {
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
         if (existingUser) {
           return res.status(400).json({ error: 'User with this email already exists' });
         }
@@ -40,11 +66,16 @@ export const signup = async (req: Request, res: Response) => {
 
         const user = await User.create({
           name,
-          email,
+          email: email.toLowerCase(),
           passwordHash,
           neighborhood: neighborhood || 'Downtown Neighborhood',
           profession: profession || 'Neighbor',
+          age: age ? Number(age) : undefined,
+          gender: gender || '',
+          profileCompleted: false,
+          blockedUsers: [],
           skills: Array.isArray(skills) ? skills : [],
+          avatarUrl: avatarUrl || '',
           location: userLocation,
         });
 
@@ -52,20 +83,7 @@ export const signup = async (req: Request, res: Response) => {
 
         return res.status(201).json({
           token,
-          user: {
-            _id: user._id,
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            bio: user.bio,
-            neighborhood: user.neighborhood,
-            profession: user.profession,
-            skills: user.skills,
-            trustScore: user.trustScore,
-            completedFavors: user.completedFavors,
-            avatarUrl: user.avatarUrl,
-            location: user.location,
-          },
+          user: formatUserResponse(user),
         });
       } catch (dbErr) {
         console.warn('MongoDB query failed in signup, falling back to mockStore:', dbErr);
@@ -73,7 +91,7 @@ export const signup = async (req: Request, res: Response) => {
     }
 
     // MockStore Fallback
-    const existingMock = mockStore.findUserByEmail(email);
+    const existingMock = mockStore.findUserByEmail(email.toLowerCase());
     if (existingMock) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
@@ -83,11 +101,16 @@ export const signup = async (req: Request, res: Response) => {
 
     const mockUser = mockStore.createUser({
       name,
-      email,
+      email: email.toLowerCase(),
       passwordHash,
       neighborhood: neighborhood || 'Downtown Neighborhood',
       profession: profession || 'Neighbor',
+      age: age ? Number(age) : undefined,
+      gender: gender || '',
+      profileCompleted: false,
+      blockedUsers: [],
       skills: Array.isArray(skills) ? skills : [],
+      avatarUrl: avatarUrl || '',
       location: {
         type: 'Point',
         coordinates: Array.isArray(coordinates) && coordinates.length === 2
@@ -100,20 +123,7 @@ export const signup = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       token,
-      user: {
-        _id: mockUser._id,
-        id: mockUser._id,
-        name: mockUser.name,
-        email: mockUser.email,
-        bio: mockUser.bio,
-        neighborhood: mockUser.neighborhood,
-        profession: mockUser.profession,
-        skills: mockUser.skills,
-        trustScore: mockUser.trustScore,
-        completedFavors: mockUser.completedFavors,
-        avatarUrl: mockUser.avatarUrl,
-        location: mockUser.location,
-      },
+      user: formatUserResponse(mockUser),
     });
   } catch (err: any) {
     console.error('Signup error:', err);
@@ -131,27 +141,14 @@ export const login = async (req: Request, res: Response) => {
 
     if (isDBConnected()) {
       try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (user) {
           const isMatch = await bcrypt.compare(password, user.passwordHash);
           if (isMatch) {
             const token = generateToken(user._id.toString(), user.email);
             return res.json({
               token,
-              user: {
-                _id: user._id,
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                bio: user.bio,
-                neighborhood: user.neighborhood,
-                profession: user.profession,
-                skills: user.skills,
-                trustScore: user.trustScore,
-                completedFavors: user.completedFavors,
-                avatarUrl: user.avatarUrl,
-                location: user.location,
-              },
+              user: formatUserResponse(user),
             });
           }
           return res.status(401).json({ error: 'Invalid email or password' });
@@ -162,7 +159,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // MockStore Fallback
-    const mockUser = mockStore.findUserByEmail(email);
+    const mockUser = mockStore.findUserByEmail(email.toLowerCase());
     if (!mockUser) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -176,20 +173,7 @@ export const login = async (req: Request, res: Response) => {
 
     return res.json({
       token,
-      user: {
-        _id: mockUser._id,
-        id: mockUser._id,
-        name: mockUser.name,
-        email: mockUser.email,
-        bio: mockUser.bio,
-        neighborhood: mockUser.neighborhood,
-        profession: mockUser.profession,
-        skills: mockUser.skills,
-        trustScore: mockUser.trustScore,
-        completedFavors: mockUser.completedFavors,
-        avatarUrl: mockUser.avatarUrl,
-        location: mockUser.location,
-      },
+      user: formatUserResponse(mockUser),
     });
   } catch (err: any) {
     console.error('Login error:', err);
@@ -208,20 +192,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
         const user = await User.findById(req.user.id).select('-passwordHash');
         if (user) {
           return res.json({
-            user: {
-              _id: user._id,
-              id: user._id,
-              name: user.name,
-              email: user.email,
-              bio: user.bio,
-              neighborhood: user.neighborhood,
-              profession: user.profession,
-              skills: user.skills,
-              trustScore: user.trustScore,
-              completedFavors: user.completedFavors,
-              avatarUrl: user.avatarUrl,
-              location: user.location,
-            },
+            user: formatUserResponse(user),
           });
         }
       } catch (dbErr) {
@@ -236,20 +207,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     }
 
     return res.json({
-      user: {
-        _id: mockUser._id,
-        id: mockUser._id,
-        name: mockUser.name,
-        email: mockUser.email,
-        bio: mockUser.bio,
-        neighborhood: mockUser.neighborhood,
-        profession: mockUser.profession,
-        skills: mockUser.skills,
-        trustScore: mockUser.trustScore,
-        completedFavors: mockUser.completedFavors,
-        avatarUrl: mockUser.avatarUrl,
-        location: mockUser.location,
-      },
+      user: formatUserResponse(mockUser),
     });
   } catch (err: any) {
     console.error('GetMe error:', err);
@@ -263,7 +221,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { name, bio, neighborhood, profession, skills, coordinates, avatarUrl } = req.body;
+    const { name, bio, neighborhood, profession, skills, coordinates, avatarUrl, age, gender, profileCompleted } = req.body;
 
     if (isDBConnected()) {
       try {
@@ -273,6 +231,9 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
           if (bio !== undefined) user.bio = bio;
           if (neighborhood) user.neighborhood = neighborhood;
           if (profession) user.profession = profession;
+          if (age !== undefined) user.age = Number(age) || undefined;
+          if (gender !== undefined) user.gender = gender;
+          if (profileCompleted !== undefined) user.profileCompleted = Boolean(profileCompleted);
           if (Array.isArray(skills)) user.skills = skills;
           if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
 
@@ -286,19 +247,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
           await user.save();
 
           return res.json({
-            user: {
-              id: user._id,
-              name: user.name,
-              email: user.email,
-              bio: user.bio,
-              neighborhood: user.neighborhood,
-              profession: user.profession,
-              skills: user.skills,
-              trustScore: user.trustScore,
-              completedFavors: user.completedFavors,
-              avatarUrl: user.avatarUrl,
-              location: user.location,
-            },
+            user: formatUserResponse(user),
           });
         }
       } catch (dbErr) {
@@ -316,6 +265,9 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     if (bio !== undefined) mockUser.bio = bio;
     if (neighborhood) mockUser.neighborhood = neighborhood;
     if (profession) mockUser.profession = profession;
+    if (age !== undefined) mockUser.age = Number(age) || undefined;
+    if (gender !== undefined) mockUser.gender = gender;
+    if (profileCompleted !== undefined) mockUser.profileCompleted = Boolean(profileCompleted);
     if (Array.isArray(skills)) mockUser.skills = skills;
     if (avatarUrl !== undefined) mockUser.avatarUrl = avatarUrl;
     if (Array.isArray(coordinates) && coordinates.length === 2) {
@@ -326,23 +278,90 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     }
 
     return res.json({
-      user: {
-        id: mockUser._id,
-        name: mockUser.name,
-        email: mockUser.email,
-        bio: mockUser.bio,
-        neighborhood: mockUser.neighborhood,
-        profession: mockUser.profession,
-        skills: mockUser.skills,
-        trustScore: mockUser.trustScore,
-        completedFavors: mockUser.completedFavors,
-        avatarUrl: mockUser.avatarUrl,
-        location: mockUser.location,
-      },
+      user: formatUserResponse(mockUser),
     });
   } catch (err: any) {
     console.error('Update profile error:', err);
     res.status(500).json({ error: err.message || 'Failed to update profile' });
+  }
+};
+
+export const blockUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const currentUserId = req.user?.id;
+    const targetUserId = req.params.userId || req.body.userId;
+
+    if (!currentUserId) return res.status(401).json({ error: 'Not authenticated' });
+    if (!targetUserId) return res.status(400).json({ error: 'Target user ID is required' });
+    if (currentUserId === targetUserId) return res.status(400).json({ error: 'Cannot block yourself' });
+
+    if (isDBConnected()) {
+      try {
+        await User.findByIdAndUpdate(currentUserId, {
+          $addToSet: { blockedUsers: targetUserId },
+        });
+        return res.json({ success: true, message: 'User blocked successfully', blockedUserId: targetUserId });
+      } catch (dbErr) {
+        console.warn('MongoDB block user error:', dbErr);
+      }
+    }
+
+    mockStore.blockUser(currentUserId, targetUserId);
+    return res.json({ success: true, message: 'User blocked successfully', blockedUserId: targetUserId });
+  } catch (err: any) {
+    console.error('Block user error:', err);
+    res.status(500).json({ error: 'Failed to block user' });
+  }
+};
+
+export const unblockUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const currentUserId = req.user?.id;
+    const targetUserId = req.params.userId || req.body.userId;
+
+    if (!currentUserId) return res.status(401).json({ error: 'Not authenticated' });
+    if (!targetUserId) return res.status(400).json({ error: 'Target user ID is required' });
+
+    if (isDBConnected()) {
+      try {
+        await User.findByIdAndUpdate(currentUserId, {
+          $pull: { blockedUsers: targetUserId },
+        });
+        return res.json({ success: true, message: 'User unblocked successfully', unblockedUserId: targetUserId });
+      } catch (dbErr) {
+        console.warn('MongoDB unblock user error:', dbErr);
+      }
+    }
+
+    mockStore.unblockUser(currentUserId, targetUserId);
+    return res.json({ success: true, message: 'User unblocked successfully', unblockedUserId: targetUserId });
+  } catch (err: any) {
+    console.error('Unblock user error:', err);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+};
+
+export const getBlockedUsers = async (req: AuthRequest, res: Response) => {
+  try {
+    const currentUserId = req.user?.id;
+    if (!currentUserId) return res.status(401).json({ error: 'Not authenticated' });
+
+    if (isDBConnected()) {
+      try {
+        const user = await User.findById(currentUserId).populate('blockedUsers', 'name avatarUrl neighborhood profession trustScore');
+        if (user) {
+          return res.json(user.blockedUsers || []);
+        }
+      } catch (dbErr) {
+        console.warn('MongoDB getBlockedUsers error:', dbErr);
+      }
+    }
+
+    const blocked = mockStore.getBlockedUsers(currentUserId);
+    return res.json(blocked.map(formatUserResponse));
+  } catch (err: any) {
+    console.error('Get blocked users error:', err);
+    res.status(500).json({ error: 'Failed to fetch blocked users' });
   }
 };
 
@@ -355,20 +374,7 @@ export const getUserById = async (req: Request, res: Response) => {
       try {
         const user = await User.findById(userId).select('-passwordHash');
         if (user) {
-          return res.json({
-            _id: user._id,
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            bio: user.bio,
-            neighborhood: user.neighborhood,
-            profession: user.profession,
-            skills: user.skills,
-            trustScore: user.trustScore,
-            completedFavors: user.completedFavors,
-            avatarUrl: user.avatarUrl,
-            location: user.location,
-          });
+          return res.json(formatUserResponse(user));
         }
       } catch (dbErr) {
         console.warn('MongoDB getUserById error:', dbErr);
@@ -377,20 +383,7 @@ export const getUserById = async (req: Request, res: Response) => {
 
     const mockUser = mockStore.findUserById(userId);
     if (mockUser) {
-      return res.json({
-        _id: mockUser._id,
-        id: mockUser._id,
-        name: mockUser.name,
-        email: mockUser.email,
-        bio: mockUser.bio,
-        neighborhood: mockUser.neighborhood,
-        profession: mockUser.profession,
-        skills: mockUser.skills,
-        trustScore: mockUser.trustScore,
-        completedFavors: mockUser.completedFavors,
-        avatarUrl: mockUser.avatarUrl,
-        location: mockUser.location,
-      });
+      return res.json(formatUserResponse(mockUser));
     }
 
     return res.status(404).json({ error: 'User not found' });
@@ -420,22 +413,7 @@ export const searchNeighbors = async (req: Request, res: Response) => {
         }
         const users = await User.find(filter).select('-passwordHash').limit(20);
         if (users && users.length > 0) {
-          return res.json(
-            users.map((u) => ({
-              _id: u._id,
-              id: u._id,
-              name: u.name,
-              email: u.email,
-              bio: u.bio,
-              neighborhood: u.neighborhood,
-              profession: u.profession,
-              skills: u.skills,
-              trustScore: u.trustScore,
-              completedFavors: u.completedFavors,
-              avatarUrl: u.avatarUrl,
-              location: u.location,
-            }))
-          );
+          return res.json(users.map(formatUserResponse));
         }
       } catch (dbErr) {
         console.warn('MongoDB searchNeighbors error:', dbErr);
@@ -443,11 +421,9 @@ export const searchNeighbors = async (req: Request, res: Response) => {
     }
 
     const mockResults = mockStore.searchNeighbors(query);
-    return res.json(mockResults);
+    return res.json(mockResults.map(formatUserResponse));
   } catch (err: any) {
     console.error('searchNeighbors error:', err);
     res.status(500).json({ error: 'Failed to search neighbors' });
   }
 };
-
-

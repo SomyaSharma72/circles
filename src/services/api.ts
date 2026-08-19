@@ -25,6 +25,7 @@ api.interceptors.response.use(
   }
 );
 
+// Favor Requests
 export const getFavorRequests = async (params?: Record<string, any>) => {
   const res = await api.get('/requests', { params });
   return res.data;
@@ -55,11 +56,43 @@ export const respondToFavorRequest = async (id: string) => {
   return res.data;
 };
 
+export const acceptFavorRequest = async (id: string) => {
+  const res = await api.post(`/requests/${id}/accept`);
+  return res.data;
+};
+
+export const completeFavorRequest = async (id: string) => {
+  const res = await api.post(`/requests/${id}/complete`);
+  return res.data;
+};
+
 export const updateFavorStatus = async (id: string, status: string) => {
   const res = await api.patch(`/requests/${id}/status`, { status });
   return res.data;
 };
 
+// Reviews & Ratings
+export const submitReview = async (data: {
+  requestId: string;
+  revieweeId: string;
+  rating: number;
+  comment: string;
+}) => {
+  const res = await api.post('/reviews', data);
+  return res.data;
+};
+
+export const getReviewsByRequest = async (requestId: string) => {
+  const res = await api.get(`/reviews/request/${requestId}`);
+  return res.data;
+};
+
+export const getUserReviews = async (userId: string) => {
+  const res = await api.get(`/reviews/user/${userId}`);
+  return res.data;
+};
+
+// Messages & Conversations
 export const getUserConversations = async () => {
   const res = await api.get('/messages/conversations');
   return res.data;
@@ -75,8 +108,93 @@ export const sendMessage = async (requestId: string, text: string, receiverId?: 
   return res.data;
 };
 
+// Community Groups / Circles
+export const getCommunityGroups = async (params?: { category?: string; query?: string; lat?: number; lng?: number }) => {
+  const res = await api.get('/groups', { params });
+  return res.data;
+};
+
+export const getCommunityGroupById = async (id: string) => {
+  const res = await api.get(`/groups/${id}`);
+  return res.data;
+};
+
+export const createCommunityGroup = async (data: {
+  name: string;
+  description?: string;
+  category?: string;
+  neighborhood?: string;
+  icon?: string;
+  privacy?: 'Public' | 'Approval Required';
+  coordinates?: [number, number];
+}) => {
+  const res = await api.post('/groups', data);
+  return res.data;
+};
+
+export const joinCommunityGroup = async (id: string) => {
+  const res = await api.post(`/groups/${id}/join`);
+  return res.data;
+};
+
+export const leaveCommunityGroup = async (id: string) => {
+  const res = await api.post(`/groups/${id}/leave`);
+  return res.data;
+};
+
+export const deleteCommunityGroup = async (id: string) => {
+  const res = await api.delete(`/groups/${id}`);
+  return res.data;
+};
+
+export const getGroupMessages = async (id: string) => {
+  const res = await api.get(`/groups/${id}/messages`);
+  return res.data;
+};
+
+export const sendGroupMessage = async (id: string, text: string) => {
+  const res = await api.post(`/groups/${id}/messages`, { text });
+  return res.data;
+};
+
+// Aliases for Circles
+export const getCircles = getCommunityGroups;
+export const getCircleById = getCommunityGroupById;
+export const createCircle = createCommunityGroup;
+export const joinCircle = joinCommunityGroup;
+export const leaveCircle = leaveCommunityGroup;
+export const deleteCircle = deleteCommunityGroup;
+export const getCircleMessages = getGroupMessages;
+export const sendCircleMessage = sendGroupMessage;
+
+// Auth & Users
 export const getUserById = async (userId: string) => {
   const res = await api.get(`/auth/user/${userId}`);
+  return res.data;
+};
+
+export const updateProfile = async (data: Record<string, any>) => {
+  const res = await api.put('/auth/profile', data);
+  return res.data;
+};
+
+export const completeProfileSetup = async (data: Record<string, any>) => {
+  const res = await api.post('/auth/profile-setup', { ...data, profileCompleted: true });
+  return res.data;
+};
+
+export const blockUser = async (userId: string) => {
+  const res = await api.post(`/auth/block/${userId}`);
+  return res.data;
+};
+
+export const unblockUser = async (userId: string) => {
+  const res = await api.post(`/auth/unblock/${userId}`);
+  return res.data;
+};
+
+export const getBlockedUsers = async () => {
+  const res = await api.get('/auth/blocked');
   return res.data;
 };
 

@@ -10,8 +10,24 @@ import {
   ArrowRight,
   Heart,
   MapPin,
-  Crosshair,
+  Wrench,
+  Dog,
+  Users,
+  GraduationCap,
+  ShoppingBag,
+  Laptop,
+  HelpCircle,
 } from 'lucide-react';
+
+const CATEGORIES = [
+  { name: 'Repairs & Tools', icon: Wrench, desc: 'Drills, ladders, fixing leaks' },
+  { name: 'Pet Care', icon: Dog, desc: 'Dog walks, pet sitting, feeding' },
+  { name: 'Childcare', icon: Users, desc: 'Emergency school pickup, babysitting' },
+  { name: 'Tutoring', icon: GraduationCap, desc: 'Math, languages, music lessons' },
+  { name: 'Groceries/Errands', icon: ShoppingBag, desc: 'Pharmacy runs, urgent grocery pickup' },
+  { name: 'Tech Help', icon: Laptop, desc: 'Wi-Fi setup, printer fix, software' },
+  { name: 'General Help', icon: HelpCircle, desc: 'Moving boxes, gardening, borrowing items' },
+];
 
 export const CreateRequestPage: React.FC = () => {
   const { user } = useAuth();
@@ -20,6 +36,7 @@ export const CreateRequestPage: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Repairs & Tools');
   const [locationName, setLocationName] = useState(
     user?.neighborhood || location.fullAddress || location.neighborhood || 'Local Circle'
   );
@@ -49,8 +66,9 @@ export const CreateRequestPage: React.FC = () => {
       setError(null);
 
       const created = await createFavorRequest({
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
+        category,
         locationName,
         coordinates,
       });
@@ -87,9 +105,46 @@ export const CreateRequestPage: React.FC = () => {
             </div>
           )}
 
+          {/* Category Picker */}
           <div>
             <label className="block text-xs font-bold text-[#2F2F2F] uppercase tracking-wider mb-2">
-              What do you need help with?
+              Select Favor Category *
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {CATEGORIES.map((cat) => {
+                const isSelected = category === cat.name;
+                const Icon = cat.icon;
+                return (
+                  <button
+                    key={cat.name}
+                    type="button"
+                    onClick={() => setCategory(cat.name)}
+                    className={`p-3 rounded-2xl border text-left transition flex flex-col items-start gap-1.5 ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-50/80 ring-2 ring-orange-500/20'
+                        : 'border-[#E6DFD3] bg-[#F5F1E8]/50 hover:bg-[#F5F1E8]'
+                    }`}
+                  >
+                    <div
+                      className={`p-1.5 rounded-xl ${
+                        isSelected ? 'bg-orange-500 text-white' : 'bg-white text-slate-700'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-900">{cat.name}</h4>
+                      <p className="text-[10px] text-slate-500 line-clamp-1 font-medium">{cat.desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#2F2F2F] uppercase tracking-wider mb-2">
+              What do you need help with? *
             </label>
             <input
               type="text"
@@ -103,7 +158,7 @@ export const CreateRequestPage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-[#2F2F2F] uppercase tracking-wider mb-2">
-              Description & Details
+              Description & Details *
             </label>
             <textarea
               required
@@ -165,7 +220,8 @@ export const CreateRequestPage: React.FC = () => {
             <div>
               <h4 className="font-bold text-[#355E3B] mb-0.5 font-heading">Circle Match Engine</h4>
               <p className="text-slate-700 leading-relaxed font-medium">
-                Your request will be matched automatically with nearby verified neighbors who hold matching skill circles.
+                Your request will be matched automatically with nearby verified neighbors in the{' '}
+                <span className="font-bold">{category}</span> circle.
               </p>
             </div>
           </div>
@@ -173,7 +229,7 @@ export const CreateRequestPage: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-4 bg-[#C96C4A] hover:bg-[#b05a3b] text-white font-extrabold text-sm rounded-full transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-2xs active:scale-95"
+            className="w-full py-4 bg-[#C96C4A] hover:bg-[#b05a3b] text-white font-extrabold text-sm rounded-full transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-2xs active:scale-95 cursor-pointer"
           >
             {submitting ? (
               <>

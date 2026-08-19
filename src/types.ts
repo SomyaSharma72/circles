@@ -11,9 +11,14 @@ export interface User {
   bio?: string;
   neighborhood?: string;
   profession?: string;
+  age?: number;
+  gender?: string;
+  profileCompleted?: boolean;
+  blockedUsers?: string[];
   skills: string[];
   trustScore: number;
   completedFavors: number;
+  credits?: number;
   avatarUrl?: string;
   location: UserLocation;
   matchPercentage?: number;
@@ -30,6 +35,8 @@ export interface FavorRequest {
   status: 'Open' | 'In Progress' | 'Completed' | 'Cancelled';
   requester: User;
   helper?: User;
+  creditsAwarded?: boolean;
+  completedAt?: string;
   summary?: string;
   isFlaggedSpam?: boolean;
   fraudReason?: string;
@@ -77,6 +84,9 @@ export interface Conversation {
   requestTitle: string;
   requestCategory?: string;
   requestStatus: string;
+  requesterId?: string;
+  helperId?: string;
+  isRequester?: boolean;
   otherUser: {
     _id: string;
     id?: string;
@@ -93,6 +103,26 @@ export interface Conversation {
     read?: boolean;
   };
   unreadCount?: number;
+}
+
+export interface CommunityGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  category: string;
+  creator: User | any;
+  members: (User | any)[];
+  neighborhood?: string;
+  avatarUrl?: string;
+  createdAt: string;
+}
+
+export interface CommunityGroupMessage {
+  _id: string;
+  group: string;
+  sender: User | any;
+  text: string;
+  createdAt: string;
 }
 
 export interface CommunityMetrics {
@@ -113,4 +143,38 @@ export interface GeocodedLocation {
   country?: string;
   timestamp: number;
   source: 'gps' | 'cache' | 'fallback' | 'custom';
+}
+
+export interface CreditTransaction {
+  _id: string;
+  userId: string;
+  amount: number;
+  type: 'earned' | 'spent';
+  reason: string;
+  requestId?: string;
+  createdAt: string;
+}
+
+export interface RewardOffer {
+  _id: string;
+  title: string;
+  description: string;
+  brand: string;
+  category: string;
+  creditsRequired: number;
+  discount: string;
+  icon: string;
+  isActive: boolean;
+}
+
+export interface RewardRedemption {
+  _id: string;
+  userId: string;
+  offerId: string;
+  offerTitle: string;
+  offerBrand: string;
+  discount: string;
+  creditsSpent: number;
+  redemptionCode: string;
+  createdAt: string;
 }

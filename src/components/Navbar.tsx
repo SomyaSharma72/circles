@@ -13,11 +13,13 @@ import {
   Compass,
   MessageSquare,
   RefreshCw,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocketContext } from '../context/SocketContext';
 import { useLocationContext } from '../context/LocationContext';
 import { LocationPickerModal } from './LocationPickerModal';
+import { UserAvatar } from './UserAvatar';
 
 export const Navbar: React.FC = () => {
   const { user, login, logout } = useAuth();
@@ -95,6 +97,19 @@ export const Navbar: React.FC = () => {
 
         {/* Right Action Bar */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Community Circles Link */}
+          <Link
+            to="/circles"
+            className={`hidden md:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition border ${
+              isActive('/circles')
+                ? 'bg-[#355E3B] text-white border-[#355E3B]'
+                : 'bg-[#F5F1E8] hover:bg-[#E6DFD3] text-[#355E3B] border-[#E6DFD3]'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Circles</span>
+          </Link>
+
           {/* Ask for Help Button */}
           <Link
             to="/create-request"
@@ -121,12 +136,14 @@ export const Navbar: React.FC = () => {
 
               <Link
                 to="/profile"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-[#F5F1E8] hover:bg-[#E6DFD3] border border-[#E6DFD3] transition group shadow-2xs"
+                className="flex items-center gap-2 px-2 py-1 rounded-full bg-[#F5F1E8] hover:bg-[#E6DFD3] border border-[#E6DFD3] transition group shadow-2xs"
               >
-                <div className="w-7 h-7 rounded-full bg-[#355E3B] text-white font-extrabold text-xs flex items-center justify-center shadow-2xs">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="text-left hidden lg:block">
+                <UserAvatar
+                  userId={user._id || user.id}
+                  name={user.name}
+                  size="sm"
+                />
+                <div className="text-left hidden lg:block pr-1">
                   <span className="text-xs font-extrabold text-[#2F2F2F] block leading-none group-hover:text-[#C96C4A]">
                     {user.name}
                   </span>

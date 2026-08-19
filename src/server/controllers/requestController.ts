@@ -383,29 +383,45 @@ export const completeRequest = async (req: AuthRequest, res: Response) => {
       try {
         const request = await FavorRequest.findById(id);
 
-        if (request) {
-          request.status = 'Completed';
-          await request.save();
-
-          if (request.helper) {
-            await User.findByIdAndUpdate(request.helper, {
-              $inc: { completedFavors: 1, trustScore: 5 },
-            });
-          }
-
-          const updated = await FavorRequest.findById(id)
-            .populate('requester', 'name avatarUrl trustScore')
-            .populate('helper', 'name avatarUrl trustScore');
-
-          try {
-            const io = getIO();
-            io.to(`request:${id}`).emit('request:completed', updated);
-          } catch (sErr) {
-            console.warn('Socket notice:', sErr);
-          }
-
-          return res.json(updated);
+        if (!request) {
+          return res.status(404).json({ error: 'Favor request not found' });
         }
+
+        // Validate requester or helper
+        const isRequester = request.requester.toString() === req.user.id;
+        const isHelper = request.helper && request.helper.toString() === req.user.id;
+        if (!isRequester && !isHelper) {
+          return res.status(403).json({ error: 'Only participants of this favor request can mark it completed' });
+        }
+
+        request.status = 'Completed';
+        await request.save();
+
+        if (request.helper) {
+          await User.findByIdAndUpdate(request.helper, {
+            $inc: { completedFavors: 1, trustScore: 5 },
+          });
+        }
+        await User.findByIdAndUpdate(request.requester, {
+          $inc: { completedFavors: 1 },
+        });
+
+        const updated = await FavorRequest.findById(id)
+          .populate('requester', 'name avatarUrl trustScore neighborhood')
+          .populate('helper', 'name avatarUrl trustScore neighborhood');
+
+        try {
+          const io = getIO();
+          io.to(`request:${id}`).emit('request:completed', updated);
+          io.to(`user:${request.requester.toString()}`).emit('request:completed:notify', updated);
+          if (request.helper) {
+            io.to(`user:${request.helper.toString()}`).emit('request:completed:notify', updated);
+          }
+        } catch (sErr) {
+          console.warn('Socket notice:', sErr);
+        }
+
+        return res.json(updated);
       } catch (dbErr) {
         console.warn('MongoDB query failed in completeRequest, falling back to mockStore:', dbErr);
       }
@@ -425,6 +441,14 @@ export const completeRequest = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const requesterId = typeof mockReq.requester === 'object' ? mockReq.requester._id : mockReq.requester;
+    if (requesterId) {
+      const requesterUser = mockStore.findUserById(requesterId);
+      if (requesterUser) {
+        requesterUser.completedFavors = (requesterUser.completedFavors || 0) + 1;
+      }
+    }
+
     try {
       const io = getIO();
       io.to(`request:${id}`).emit('request:completed', mockReq);
@@ -437,6 +461,17 @@ export const completeRequest = async (req: AuthRequest, res: Response) => {
     console.error('Complete request error:', err);
     res.status(500).json({ error: err.message || 'Failed to complete favor' });
   }
+};
+
+export const updateRequestStatus = async (req: AuthRequest, res: Response) => {
+  const { status } = req.body;
+  if (status === 'Completed') {
+    return completeRequest(req, res);
+  }
+  if (status === 'In Progress') {
+    return acceptRequest(req, res);
+  }
+  return res.status(400).json({ error: 'Invalid status update' });
 };
 
 export const matchSkills = async (req: AuthRequest, res: Response) => {
